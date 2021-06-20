@@ -1,6 +1,6 @@
-# SRFI nnn: Title
+# SRFI nnn: Delimited Continuations
 
-by Firstname Lastname, Another Person, Third Person
+by Marc Nieper-Wißkirchen
 
 ## Status
 
@@ -38,6 +38,38 @@ GitHub's version of Markdown can make tables. For example:
 
 ## Specification
 
+### Continuation Prompt Tags
+
+(make-continuation-prompt-tag [name])
+
+(default-continuation-prompt-tag)
+
+(continuation-prompt-tag?)
+
+(continuation-prompt-tag-available?)
+
+### Continuation Prompts
+
+(call-with-continuation-prompt ...)
+
+(abort-current-continuation ...)
+
+### Continuations
+
+(call-with-composable-continuation )
+
+(call-with-current-continuation)
+
+(continuation?)
+
+(call-in-continuation)
+
+(dynamic-wind)
+
+### Continuation Barriers
+
+(call-with-continuation-barrier)
+
 ??? detailed specification. This should be detailed enough that a
 conforming implementation could be completely created from this
 description.
@@ -61,7 +93,7 @@ helped design the SRFI.
 
 ## Copyright
 
-Copyright (C) Firstname Lastname (20XY).
+Copyright (C) Marc Nieper-Wißkirchen (2021).
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
