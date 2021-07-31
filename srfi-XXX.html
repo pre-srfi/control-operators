@@ -491,29 +491,29 @@
 	  versions of the Scheme programming language.</p>
       </dd>
 
-      <dt class="syntax"><code>(%lambda-box <span class="token">expression</span> <span class="token">formals</span>
-	  <span class="token">body</span>)</code></dt>
+      <dt class="syntax"><code>(%case-lambda-box <span class="token">expression</span> [<span class="token">formals</span>
+	  <span class="token">body</span>] ...)</code></dt>
       <dd>
 	<p><i>Syntax:</i>
 	  <code><span class="token">Expression</span></code> must be
 	  an
-	  expression, <code><span class="token">formals</span></code>
-	  must be a formal parameter list
-	  and <code><span class="token">body</span></code> must be a
-	  body.</p>
+	  expression, the <code><span class="token">formals</span></code>s
+	  must be formal parameter lists
+	  and the <code><span class="token">body</span></code>s must be
+	  bodies.</p>
 
 	<p><i>Semantics:</i>
-	  When a <code>%lambda-box</code> expression is evaluated,
+	  When a <code>%case-lambda-box</code> expression is evaluated,
 	  it first
 	  evaluates <code><span class="token">expression</span></code>,
 	  stores the resulting value in a new location, and then
 	  returns a procedure that when later called with some
 	  arguments behaves as if the procedure were created by
-	  evaluating <code>(lambda <span class="token">formals</span> <span class="token">body</span>)</code>
+	  evaluating <code>(case-lambda [<span class="token">formals</span> <span class="token">body</span>] ...)</code>
 	  and that is tagged with the new location.</p>
       </dd>
 
-      <dt class="procedure"><code>(%lambda-box-ref <var>proc</var> <var>obj</var>)</code></dt>
+      <dt class="procedure"><code>(%case-lambda-box-ref <var>proc</var> <var>obj</var>)</code></dt>
       <dd>
 	<p>If <var>proc</var> is a procedure tagged with a location,
 	  the <code>%lambda-box-ref</code> procedure returns the value
