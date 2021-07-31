@@ -26,7 +26,19 @@
 		call-with-current-continuation
 		call/cc
 		dynamic-wind
-		guard)
+		guard
+		current-input-port
+		current-output-port
+		current-error-port
+		with-input-from-file
+		with-output-to-file
+		read-char
+		peek-char
+		read
+		write-char
+		newline
+		display
+		write)
 	(control-operators)
 	(control-operators testing))
 

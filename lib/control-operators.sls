@@ -39,6 +39,10 @@
 	  continuation-prompt-tag
 	  guard else =>
 	  make-parameter parameterize
+	  current-input-port current-output-port current-error-port
+	  with-input-from-file with-output-to-file
+	  read-char peek-char read
+	  write-char newline display write
 	  run
 	  (rename (call-with-current-continuation call/cc)))
   (import (rename (except (rnrs (6))
@@ -46,17 +50,23 @@
 			  call-with-current-continuation
 			  dynamic-wind
 			  guard)
-		  [current-input-port %current-input-port]
-		  [current-output-port %current-output-port]
-		  [current-error-port %current-error-port])
+		  (current-input-port rnrs:current-input-port)
+		  (current-output-port rnrs:current-output-port)
+		  (current-error-port rnrs:current-error-port)
+		  (with-input-from-file rnrs:with-input-from-file)
+		  (with-output-to-file rnrs:with-output-to-file)
+		  (read-char rnrs:read-char)
+		  (peek-char rnrs:peek-char)
+		  (read rnrs:read)
+		  (write-char rnrs:write-char)
+		  (newline rnrs:newline)
+		  (display rnrs:display)
+		  (write rnrs:write))
 	  (control-operators define-who)
 	  (control-operators primitives))
 
   ;; TODO:
-  ;; parameterize with body in tail position. (we may need to handle io parameters special).
-  ;; Check how to handle shallow marks.
   ;; Demonstrate interoperability with SRFI 18 threads.
-  ;; Add a guard form.
   ;; Optimize (mark-set-first).
   ;; Optimize (shortcuts).
 
@@ -1048,6 +1058,99 @@
 	[_
 	 (syntax-violation who "invalid syntax" stx)])))
 
+  ;; Current input/output/error port
+
+  (define/who current-input-port
+    (make-parameter
+     (rnrs:current-input-port)
+     (lambda (port)
+       (unless (and (input-port? port)
+		    (textual-port? port))
+	 (assertion-violation who "not a textual input port" port))
+       port)))
+
+  (define/who current-output-port
+    (make-parameter
+     (rnrs:current-output-port)
+     (lambda (port)
+       (unless (and (output-port? port)
+		    (textual-port? port))
+	 (assertion-violation who "not a textual output port" port))
+       port)))
+
+  (define/who current-error-port
+    (make-parameter
+     (rnrs:current-error-port)
+     (lambda (port)
+       (unless (and (output-port? port)
+		    (textual-port? port))
+	 (assertion-violation who "not a textual output port" port))
+       port)))
+
+  (define with-input-from-file
+    (lambda (filename thunk)
+      (rnrs:with-input-from-file
+       filename
+       (lambda ()
+	 (parameterize ([current-input-port (rnrs:current-input-port)])
+	   (thunk))))))
+
+  (define with-output-to-file
+    (lambda (filename thunk)
+      (rnrs:with-output-to-file
+       filename
+       (lambda ()
+	 (parameterize ([current-output-port (rnrs:current-output-port)])
+	   (thunk))))))
+
+  (define read-char
+    (case-lambda
+      [()
+       (rnrs:read-char (current-input-port))]
+      [(port)
+       (rnrs:read-char port)]))
+
+  (define peek-char
+    (case-lambda
+      [()
+       (rnrs:peek-char (current-input-port))]
+      [(port)
+       (rnrs:peek-char port)]))
+
+  (define read
+    (case-lambda
+      [()
+       (rnrs:read (current-input-port))]
+      [(port)
+       (rnrs:read port)]))
+
+  (define write-char
+    (case-lambda
+      [(char)
+       (rnrs:write-char char (current-output-port))]
+      [(char port)
+       (rnrs:write-char char port)]))
+
+  (define newline
+    (case-lambda
+      [()
+       (rnrs:newline (current-output-port))]
+      [(port)
+       (rnrs:newline port)]))
+
+  (define display
+    (case-lambda
+      [(obj)
+       (rnrs:display obj (current-output-port))]
+      [(obj port)
+       (rnrs:display obj port)]))
+
+  (define write
+    (case-lambda
+      [(obj)
+       (rnrs:write obj (current-output-port))]
+      [(obj port)
+       (rnrs:write obj port)]))
   )
 
 ;; Local Variables:
