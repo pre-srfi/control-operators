@@ -17,11 +17,11 @@
       }
       span.token::before
       {
-          content: "〈";
+          content: "⟨";
       }
       span.token::after
       {
-          content: "〉";
+          content: "⟩";
       }
       dl.entries dt
       {
@@ -62,8 +62,9 @@
     <h2 id="abstract">Abstract</h2>
 
     <p>This SRFI defines a rich set of control operators, which has
-      originally been implemented in this form in Racket, for the
-      Scheme programming language.  This set includes the
+      originally been implemented in this form
+      in <a href="#racket"><cite>Racket</cite></a>, for the Scheme
+      programming language.  This set includes the
       venerable <code>call/cc</code>.</p>
 
     <p>Prompts delimit continuations,
@@ -84,13 +85,14 @@
       operators vastly extending the scope of the venerable pair
       of <code>call/cc</code> and <code>dynamic-wind</code>.  The
       procedures and syntax in this SRFI can be presented as an
-      R<sup>6</sup>RS or as an R<sup>7</sup>RS library, which would be
-      named <code>(srfi :XXX control)</code> or <code>(srfi
-      XXX)</code>, respectively.  Although a portable implementation
-      is not possible, it is demonstrated by the sample implementation
-      that a small set of primitives, which can easily be provided by
-      any Scheme implementation, suffices to implement the rich
-      operators in this SRFI.</p>
+      <a href="#sperber"><cite>R<sup>6</sup>RS</cite></a> or as
+      an <a href="#shinn"><cite>R<sup>7</sup>RS</cite></a> library,
+      which would be named <code>(srfi :XXX control)</code>
+      or <code>(srfi XXX)</code>, respectively.  Although a portable
+      implementation is not possible, it is demonstrated by the sample
+      implementation that a small set of primitives, which can easily
+      be provided by any Scheme implementation, suffices to implement
+      the rich operators in this SRFI.</p>
 
     <p>In detail, the contributions of this SRFI are the following:</p>
 
@@ -119,12 +121,14 @@
     <dl>
       <dt><code><var>obj</var></code></dt>
       <dd>any object</dd>
-      <dt><code><var>thunk</var></code></dt>
-      <dd>zero-argument procedure </dd>
+      <dt><code><var>name</var></code></dt>
+      <dd>symbol</dd>
+      <dt><code><var>thunk</var></code>, <code><var>pre-thunk</var></code>, <code><var>post-thunk</var></code></dt>
+      <dd>zero-argument procedures</dd>
       <dt><code><var>cont</var></code></dt>
       <dd>continuation</dd>
       <dt><code><var>prompt-tag</var></code></dt>
-      <dd>Prompt tag</dd>
+      <dd>prompt tag</dd>
       <dt><code><var>handler</var></code></dt>
       <dd>procedure or <code>#f</code></dd>
       <dt><code><var>k</var></code></dt>
@@ -165,7 +169,7 @@
       <dd>
 	<p>If not supplied, <code><var>prompt-tag</var></code>
 	  defaults to the value returned
-	  by <code>(default-continuation-prompt-tag)</code>,
+	  by <code>default-continuation-prompt-tag</code>,
 	  and <code><var>handler</var></code> defaults
 	  to <code>#f</code>.</p>
 
@@ -212,34 +216,109 @@
       </dd>
     </dl>
 
+    <h3>Prompt Tags</h3>
+
+    <dl class="entries">
+      <dt class="procedure"><code>(make-continuation-prompt-tag)</code></dt>
+      <dt class="procedure"><code>(make-continuation-prompt-tag <var>name</var>)</code></dt>
+      <dd>
+	<p>Returns a prompt tag that is not <code>equal?</code> to any
+	  prior or future results
+	  from <code>make-continuation-prompt-tag</code>
+	  or <code>default-continuation-prompt-tag</code>.
+	</p>
+	<p>
+	  The optional <code><var>name</var></code> argument may be
+	  used by the implementation for printing the prompt tag.
+	</p>
+      </dd>
+
+      <dt class="procedure"><code>(default-continuation-prompt-tag)</code></dt>
+      <dd>
+	<p>Returns a constant default prompt tag.</p>
+      </dd>
+
+      <dt class="procedure"><code>(continuation-prompt-tag? <var>obj</var>)</code></dt>
+      <dd>
+	<p>Returns <code>#t</code> if <code><var>obj</var></code> is a
+	  prompt tag, and <code>#f</code> otherwise.</p/
+      </dd>
+    </dl>
 
     <h3>Continuations</h3>
 
     <p>Each <dfn>continuation</dfn> is a procedure.</p>
 
-    <p><code>(continuation? <var>obj</var>)</code></p>
+    <dl class="entries">
+      <dt class="procedure"><code>(call-with-current-continuation <var>proc</var>)</code></dt>
+      <dt class="procedure"><code>(call-with-current-continuation <var>proc</var> <var>prompt-tag</var>)</code></dt>
+      <dt class="procedure"><code>(call/cc <var>proc</var>)</code></dt>
+      <dt class="procedure"><code>(call/cc <var>proc</var> <var>prompt-tag</var>)</code></dt>
+      <dd>
+	<p>If not supplied, <code><var>prompt-tag</var></code> defaults to the value returned
+	  by <code>default-continuation-prompt-tag</code>.</p>
+	<p>TBD</p>
+	<p>The identifier <code>call/cc</code> is an alias for <code>call-with-current-continuation</code>.</p>
+      </dd>
 
-    <p>Returns <code>#t</code> if <code><var>obj</var></code> is a
-      continuation, and <code>#f</code> otherwise.</p>
+      <dt class="procedure"><code>(call-with-composable-continuation <var>proc</var>)</code></dt>
+      <dt class="procedure"><code>(call-with-composable-continuation <var>proc</var> <var>prompt-tag</var>)</code></dt>
+      <dd>
+	<p>If not supplied, <code><var>prompt-tag</var></code> defaults to the value returned
+	  by <code>default-continuation-prompt-tag</code>.</p>
+	<p>TBD</p>
+      </dd>
 
-    <p><i>Note:</i> If the procedure <code>continuation?</code>
-    returns <code>#t</code> when applied to an
-    object <code><var>obj</var></code>, <code>procedure?</code> also
-    returns <code>#t</code> when applied
-    to <code><var>obj</var></code>.</p>
+      <dt class="procedure"><code>(continuation? <var>obj</var>)</code></dt>
+      <dd>
+	<p>Returns <code>#t</code> if <code><var>obj</var></code> is a
+	  continuation, and <code>#f</code> otherwise.</p>
+      </dd>
 
-    <code>(call/cc (lambda (k) (continuation? k)))</code> &xrArr; <code>#t</code>
+      <dt class="procedure"><code>(call-in-continuation <var>cont</var> <var>thunk</var>)</code></dt>
+      <dd>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(call-with-continuation-barrier <var>thunk</var>)</code></dt>
+      <dd>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(continuation-prompt-available? <var>prompt-tag</var>)</code></dt>
+      <dt class="procedure"><code>(continuation-prompt-available? <var>prompt-tag</var> <var>cont</var>)</code></dt>
+      <dd>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(dynamic-wind <var>pre-thunk</var> <var>thunk</var> <var>post-thunk</var>)</code></dt>
+      <dd>
+	<p>TBD</p>
+      </dd>
+    </dl>
+
+    <h3>Continuation Marks</h3>
+
+    <p>TBD</p>
 
     <h2 id="implementation">Implementation</h2>
+
+    <h3>Portability</h3>
 
     <p>Implementing the control operators presented in this SRFI as a
       portable R6RS or portable R7RS library is not possible.</p>
 
+    <h3>Sample Implementation</h3>
+
     <p>The sample implementation accompanying this SRFI demonstrates
-      how the control operators can be implemented on top of a small set of primitives:</p>
+      how the control operators can be implemented on top of a small
+      set of primitives.  If in doubt, it favors simplicity and
+      clarity over speed.</p>
+
+    <p>The small set of primitives that have to be provided are as follows:</p>
 
     <dl class="entries">
-      <dt class="procedure"><code>(%call/cc <var>proc</var>)</code></dt>
+      <dt class="procedure"><code>(%call-with-current-continuation <var>proc</var>)</code></dt>
       <dd>
 	<p>It is an error if <code><var>proc</var></code> is not a
 	procedure taking a single argument.</p>
@@ -247,21 +326,23 @@
 	<p>If a call to <code>%call/cc</code> occurs in a tail
 	context, the call to <code><var>proc</var></code> is also in a
 	  tail context.</p>
-	<p>Undelimited continuations are represented by procedures <code><var>k</var></code>
-	  so that ...
+	<p>An undelimited continuation is represented by a
+	  procedure <code><var>k</var></code> that, when it is later
+	  called, abandons whatever undelimited continuation is in
+	  effect at that later time and instead reinstates the
+	  continuation that is represented by it.</p>
 
-	  , when called, abandon whatever
-	  undelimited continuation is in effect at that time and
-	  instead reinstates
-
-	  invoke the undelimited
-	  continuation.</p>
-	<p>Continuation barriers and <code>dynamic-wind</code> thunks
-	  are ignored.</p>
+	<p><i>Note:</i> The
+	  primitive <code>%call-with-current-continuation</code> does
+	  neither support <code>dynamic-wind</code>, nor continuation
+	  barriers.</p>
       </dd>
-      <dt class="procedure"><code>(%call-in-continuation <var>k</var> <var>proc</var>)</code></dt>
+      <dt class="procedure"><code>(%call-in-continuation <var>k</var> <var>thunk</var>)</code></dt>
       <dd>
-	<p>TBD</p>
+	<p>Abandons whatever undelimited continuation is in effect,
+	  and calls <code><var>thunk</var></code> with the undelimited
+	  continuation represented by <code><var>k</var></code> as the
+	  continuation of the call.</p>
       </dd>
       <dt class="procedure"><code>(%continuation=? <var>k<sub>1</sub></var> <var>k<sub>2</sub></var>)</code></dt>
       <dd>
@@ -276,29 +357,81 @@
 	  versions of the Scheme programming language.</p>
       </dd>
 
-      <dt class="procedure"><code>(%procedure-specific <var>proc</var> <var>obj</var>)</code></dt>
+      <dt class="syntax"><code>(%lambda-box <span class="token">expression</span> <span class="token">formals</span>
+	  <span class="token">body</span>)</code></dt>
       <dd>
-	<p>TBD</p>
+	<p><i>Syntax:</i>
+	  <code><span class="token">Expression</span></code> must be
+	  an
+	  expression, <code><span class="token">formals</span></code>
+	  must be a formal parameter list
+	  and <code><span class="token">body</span></code> must be a
+	  body.</p>
+
+	<p><i>Semantics:</i>
+	  When a <code>%lambda-box</code> expression is evaluated,
+	  it first
+	  evaluates <code><span class="token">expression</span></code>,
+	  stores the resulting value in a new location, and then
+	  returns a procedure that when later called with some
+	  arguments behaves as if the procedure were created by
+	  evaluating <code>(lambda <span class="token">formals</span> <span class="token">body</span>)</code>
+	  and that is tagged with the new location.</p>
       </dd>
 
-      <dt class="procedure"><code>(%procedure-specific-set! <var>proc</var> <var>obj</var>)</code></dt> <dd>
-	<p>TBD</p>
+      <dt class="procedure"><code>(%lambda-box-ref <var>proc</var> <var>obj</var>)</code></dt>
+
+      <dd>
+	<p>If <var>proc</var> is a procedure tagged with a location,
+	  the <code>%lambda-box-ref</code> procedure returns the value
+	  stored in this location, and <code>obj</code> otherwise.</p>
       </dd>
 
     </dl>
 
-    <p>The sample implementation favors clarity over speed.</p>
+    <h3>Other Implementations</h3>
 
     <p>The control operators of this SRFI are natively implemented in Racket.</p>
 
-    <a href="srfi-minus-???-sample.scm">Source for the sample implementation.</a>
-
     <h2 id="acknowledgements">Acknowledgements</h2>
 
-    <p>This SRFI borrows heavily from Racket's control operators.  The
-    sample implementation builds upon the ideas presented
-    in <cite>Dybvig/Jones/Sabry: A Monadic Framework for Delimited
-    Continuations.</p>
+    <p>This SRFI borrows heavily from Racket's collection of control
+    operators.</p>
+
+    <p>The sample implementation builds upon the ideas presented
+      in <a href="#dybvig"><cite>A Monadic Framework for Delimited
+      Continuations</cite></a> and found in Racket's CS
+      implementation.</p>
+
+    <p>Finally, I would like to thank Arthur A. Gleckler for
+      <a href="https://srfi-email.schemers.org/srfi-224/msg/16888913/">encouraging me</a> to write a SRFI covering delimited
+      continuations.</p>
+
+    <h2 id="references">References</h2>
+
+    <ol class="bibliography">
+      <li id="dybvig">
+	<p>R. Kent Dybvig, Simon Peyton Jones, and Amr
+	  Sabry: <cite>A monadic framework for delimited
+	    continuations</cite>, Journal of Functional Programming, Volume
+	  17, Issue 6, November 2007,
+	  pp. 687-730. DOI: <a href="https://doi.org/10.1017/S0956796807006259">10.1017/S0956796807006259</a>.</p>
+      </li>
+      <li id="racket"><p><a href="https://racket-lang.org/">Racket</a>.</p>
+      <li id="shinn">
+	<p>Alex Shinn, John Cowan, Arthur
+	  A. Gleckler: <a href="https://small.r7rs.org/attachment/r7rs.pdf"><cite>Revised<sup>7</sup>
+	  Report on the Algorithmic Language Scheme</cite></a>.</p>
+      </li>
+      <li id="sperber">
+	<p>Michael Sperber, R. Kent Dybvig, Matthew Flatt,
+	  Anton van Straaten, Robby Findler, and Jacob
+	  Matthews: <cite>Revised<sup>6</sup> Report on the Algorithmic
+	    Language Scheme</cite>. Journal of Functional Programming,
+	  Volume 19, Supplement S1, August 2009,
+	  pp. 1-301. DOI: <a href="https://doi.org/10.1017/S0956796809990074">10.1017/S0956796809990074</a>.</p>
+      </li>
+    </ol>
 
     <h2 id="copyright">Copyright</h2>
     <p>&copy; 2021 Marc Nieper-Wißkirchen.</p>
