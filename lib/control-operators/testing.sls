@@ -45,10 +45,6 @@
       (when *fail*
 	(exit #f))))
 
-  (define-record-type exception
-    (nongenerative) (sealed #t)
-    (fields condition))
-
   (define-syntax/who test
     (lambda (stx)
       (syntax-case stx ()
@@ -56,8 +52,7 @@
 	 #'(test #f expected-expr test-expr)]
 	[(_ name expected-expr test-expr)
 	 #'(let-values ([expected expected-expr]
-			[result (guard (c [else (make-exception c)])
-				  (run (lambda () test-expr)))])
+			[result (run (lambda () test-expr))])
 	     (do-test name expected result))]
 	[_
 	 (syntax-violation who "invalid syntax" stx)])))

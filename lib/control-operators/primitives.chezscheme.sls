@@ -26,7 +26,7 @@
   (export %call-with-current-continuation
 	  %call-in-continuation
 	  (rename [eq? %continuation=?])
-	  %lambda-box %lambda-box-ref)
+	  %case-lambda-box %case-lambda-box-ref)
   (import (except (rnrs (6)) call-with-current-continuation)
 	  (only (chezscheme) make-ephemeron-eq-hashtable))
 
@@ -34,14 +34,14 @@
     (let ([locations (make-ephemeron-eq-hashtable)])
       (lambda () locations)))
 
-  (define-syntax %lambda-box
+  (define-syntax %case-lambda-box
     (syntax-rules ()
-      [(%lambda-box expr formals body)
-       (let ([proc (lambda formals body)])
+      [(%case-lambda-box expr [formals body] ...)
+       (let ([proc (case-lambda [formals body] ...)])
 	 (hashtable-set! (procedure-locations) proc expr)
 	 proc)]))
 
-  (define %lambda-box-ref
+  (define %case-lambda-box-ref
     (lambda (proc default)
       (hashtable-ref (procedure-locations) proc default)))
 

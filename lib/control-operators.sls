@@ -125,13 +125,13 @@
 
   (define make-continuation
     (lambda (mk k marks winders prompt-tag resume-k non-composable?)
-      (%lambda-box
+      (%case-lambda-box
        (make-continuation-info mk prompt-tag resume-k non-composable?)
-       val* (resume-k (lambda () (apply values val*))))))
+       [val* (resume-k (lambda () (apply values val*)))])))
 
   (define continuation->continuation-info
     (lambda (who k)
-      (let ([info (%lambda-box-ref k #f)])
+      (let ([info (%case-lambda-box-ref k #f)])
 	(unless (continuation-info? info)
 	  (assertion-violation who "not a continuation" k))
 	info)))
@@ -158,7 +158,7 @@
 
   (define continuation?
     (lambda (obj)
-      (continuation-info? (%lambda-box-ref obj #f))))
+      (continuation-info? (%case-lambda-box-ref obj #f))))
 
   ;; Marks
 
@@ -1004,21 +1004,26 @@
 	(assertion-violation who "not a procedure" converter))
       (let ([key (make-continuation-mark-key 'parameter)]
 	    [val (converter init)])
-	(%lambda-box (make-parameter-info converter key)
-	    ()
-	  (let ([box (continuation-mark-set-first #f key)])
-	    (if box (vector-ref box 0) val))))]))
+	(%case-lambda-box (make-parameter-info converter key)
+	  [()
+	   (let ([box (continuation-mark-set-first #f key)])
+	     (if box (vector-ref box 0) val))]
+	  [(init)
+	   (let ([box (continuation-mark-set-first #f key)])
+	     (if box
+		 (vector-set! box 0 init)
+		 (set! val (converter init))))]))]))
 
   (define parameter->parameter-info
     (lambda (who param)
-      (let ([info (%lambda-box-ref param #f)])
+      (let ([info (%case-lambda-box-ref param #f)])
 	(unless (parameter-info? info)
 	  (assertion-violation who "not a parameter" param))
 	info)))
 
   (define parameter-convert
-    (lambda (who param)
-      ((parameter-info-converter (parameter->parameter-info who param) param))))
+    (lambda (who param val)
+      ((parameter-info-converter (parameter->parameter-info who param)) val)))
 
   (define parameter-key
     (lambda (who param)
@@ -1027,12 +1032,14 @@
   (define-syntax/who parameterize
     (lambda (stx)
       (syntax-case stx ()
-	[(_ ((p v) ...) e1 e2 ...)
+	[(_ ([p v] ...) e1 e2 ...)
 	 (with-syntax ([(t ...) (generate-temporaries #'(p ...))])
-	   #`(let ([t (parameter-convert who p v)] ...)
+	   #`(let ([t (parameter-convert 'parameterize p v)] ...)
 	       #,(fold-right (lambda (p t rest)
 			       (with-syntax ([p p] [t t])
-				 #`(with-continuation-mark (parameter-key who p) t
+				 #`(with-continuation-mark
+				       (parameter-key 'parameterize p)
+				       (vector t)
 				     #,rest)))
 			     #'(letrec* () e1 e2 ...) #'(p ...) #'(t ...))))]
 	[_

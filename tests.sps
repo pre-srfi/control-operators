@@ -30,6 +30,15 @@
 	(control-operators)
 	(control-operators testing))
 
+;;; Helpers
+
+(define call-with-tail-test
+  (let ([mark (make-continuation-mark-key 'tail)])
+    (lambda (proc)
+      (with-continuation-mark mark #t
+	(proc (lambda ()
+		(call-with-immediate-continuation-mark mark values)))))))
+
 ;;; Test Begin
 
 (test-begin "Control Operators")
@@ -203,6 +212,25 @@
 			 (lambda ()
 			   (get))))
 	    (lambda () (put-string p "out")))))
+
+;;; Parameters
+
+(define param (make-parameter 10 (lambda (x) (* x x))))
+
+(test 100 (param))
+
+(param 12)
+
+(test 144 (param))
+
+(test 169 (parameterize ([param 13]) (param)))
+
+(test 144 (param))
+
+(test #t (call-with-tail-test
+	  (lambda (tail?)
+	    (parameterize ([param 13])
+	      (tail?)))))
 
 ;;; Test End
 
