@@ -23,6 +23,7 @@
 ((scheme-mode
   . ((eval
       . (progn
+	  (put '%lambda-box 'scheme-indent-function 2)
           (put 'guard 'scheme-indent-function 1)
           (put 'with-continuation-mark 'scheme-indent-function 2)
           (put 'call-in-continuation 'scheme-indent-function 1)
@@ -35,6 +36,7 @@
            '(("(\\(define/who\\|define-record-type\\|define-syntax/who\\)\\>[ \t]*(*\\(\\sw+\\)?"
               (1 font-lock-keyword-face)
               (2 font-lock-function-name-face nil t))
+	     ("(\\(%lambda-box\\)\\>" 1 font-lock-keyword-face)
 	     ("(\\(call-in-continuation\\)\\>" 1 font-lock-keyword-face)
 	     ("(\\(with-continuation-mark\\)\\>" 1 font-lock-keyword-face)
              ("(\\(call-with-immediate-continuation-mark\\)\\>" 1 font-lock-keyword-face)

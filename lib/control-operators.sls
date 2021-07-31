@@ -38,6 +38,7 @@
 	  &continuation make-continuation-error continuation-error?
 	  continuation-prompt-tag
 	  guard else =>
+	  make-parameter parameterize
 	  run
 	  (rename (call-with-current-continuation call/cc)))
   (import (except (rnrs (6))
@@ -130,9 +131,10 @@
 
   (define continuation->continuation-info
     (lambda (who k)
-      (or
-       (%lambda-box-ref k #f)
-       (assertion-violation who "not a continuation" k))))
+      (let ([info (%lambda-box-ref k #f)])
+	(unless (continuation-info? info)
+	  (assertion-violation who "not a continuation" k))
+	info)))
 
   (define continuation-metacontinuation
     (lambda (who k)
@@ -985,12 +987,56 @@
 		     (lambda () e1 e2 ...)
 		   guard-k)))))]
 	[_
-	 (syntax-violation who "invalid syntax" stx)]
+	 (syntax-violation who "invalid syntax" stx)])))
 
-	))
-    )
+  ;; Parameter objects
 
-  )
+  (define-record-type parameter-info
+    (nongenerative) (sealed #t) (opaque #t)
+    (fields converter key))
+
+  (define/who make-parameter
+    (case-lambda
+     [(init)
+      (make-parameter init values)]
+     [(init converter)
+      (unless (procedure? converter)
+	(assertion-violation who "not a procedure" converter))
+      (let ([key (make-continuation-mark-key 'parameter)]
+	    [val (converter init)])
+	(%lambda-box (make-parameter-info converter key)
+	    ()
+	  (let ([box (continuation-mark-set-first #f key)])
+	    (if box (vector-ref box 0) val))))]))
+
+  (define parameter->parameter-info
+    (lambda (who param)
+      (let ([info (%lambda-box-ref param #f)])
+	(unless (parameter-info? info)
+	  (assertion-violation who "not a parameter" param))
+	info)))
+
+  (define parameter-convert
+    (lambda (who param)
+      ((parameter-info-converter (parameter->parameter-info who param) param))))
+
+  (define parameter-key
+    (lambda (who param)
+      (parameter-info-key (parameter->parameter-info who param))))
+
+  (define-syntax/who parameterize
+    (lambda (stx)
+      (syntax-case stx ()
+	[(_ ((p v) ...) e1 e2 ...)
+	 (with-syntax ([(t ...) (generate-temporaries #'(p ...))])
+	   #`(let ([t (parameter-convert who p v)] ...)
+	       #,(fold-right (lambda (p t rest)
+			       (with-syntax ([p p] [t t])
+				 #`(with-continuation-mark (parameter-key who p) t
+				     #,rest)))
+			     #'(letrec* () e1 e2 ...) #'(p ...) #'(t ...))))]
+	[_
+	 (syntax-violation who "invalid syntax" stx)]))))
 
 ;; Local Variables:
 ;; mode: scheme
