@@ -96,9 +96,44 @@
 
     <p>In detail, the contributions of this SRFI are the following:</p>
 
-    <h3>Delimited Continuations and Prompts</h3>
+    <h3>Continuations and Prompts</h3>
 
-    TBD
+    <p>As explained in the <cite>R<sup>6</sup>RS</cite> and
+      the <cite>R<sup>7</sup>RS</cite>, whenever a Scheme expression
+      is evaluated, there is a <dfn>continuation</dfn> wanting the
+      result of the expression.  Each evaluation step can alter the
+      current continuation.  For example, non-tail calls let the
+      current continuation grow, while returns from non-tail calls let
+      it shrink.</p>
+
+    <p>Certain control operations can change the current continuation
+      more radically.  The Scheme procedure <code>call/cc</code>
+      allows capturing the current continuation and reifies it into a
+      procedure that, when later called, abandons the then current
+      continuation and replaces it with the captured one.</p>
+
+    <p>Conceptually, only an end segment of the current continuation
+      is ever replaced.  For example, when running a Scheme program,
+      running a thread, or evaluating an expression at the REPL
+      prompt, the old and the new current continuation always share an
+      initial segment at least up to the point when the program was
+      started, the thread was started, or the expression sent to the
+      REPL.</p>
+
+    <p>Therefore, <code>call/cc</code> never has to, nor actually does
+      capture the whole current continuation, but only an end segment.
+      Reinstating the captured continuation means to replace the end
+      segment of the then current continuation.</p>
+
+    <p>With <code>call/cc</code> alone, the programmer has no control
+      over the size of this end segment.  This SRFI offers operators
+      to exactly do this.  With these operators, the programmer can
+      install <dfn>continuation prompts</dfn> identified
+      by <dfn>prompt tags</dfn> in the current continuation.  When a
+      continuation is later captured, it is delimited by the nearest
+      continuation prompt with a given prompt tag.  Default prompts
+      are installed at the start of each program, the start of each
+      thread, and when expressions are sent to the REPL.</p>
 
     <h3>Composable and Non-Composable Continuations</h3>
 
