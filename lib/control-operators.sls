@@ -41,11 +41,14 @@
 	  make-parameter parameterize
 	  run
 	  (rename (call-with-current-continuation call/cc)))
-  (import (except (rnrs (6))
-		  call/cc
-		  call-with-current-continuation
-		  dynamic-wind
-		  guard)
+  (import (rename (except (rnrs (6))
+			  call/cc
+			  call-with-current-continuation
+			  dynamic-wind
+			  guard)
+		  [current-input-port %current-input-port]
+		  [current-output-port %current-output-port]
+		  [current-error-port %current-error-port])
 	  (control-operators define-who)
 	  (control-operators primitives))
 
@@ -1011,7 +1014,7 @@
 	  [(init)
 	   (let ([box (continuation-mark-set-first #f key)])
 	     (if box
-		 (vector-set! box 0 init)
+		 (vector-set! box 0 (converter init))
 		 (set! val (converter init))))]))]))
 
   (define parameter->parameter-info
@@ -1043,7 +1046,9 @@
 				     #,rest)))
 			     #'(letrec* () e1 e2 ...) #'(p ...) #'(t ...))))]
 	[_
-	 (syntax-violation who "invalid syntax" stx)]))))
+	 (syntax-violation who "invalid syntax" stx)])))
+
+  )
 
 ;; Local Variables:
 ;; mode: scheme

@@ -227,6 +227,10 @@
 
 (test 144 (param))
 
+(test 64 (parameterize ([param 13]) (param 8) (param)))
+
+(test 144 (param))
+
 (test #t (call-with-tail-test
 	  (lambda (tail?)
 	    (parameterize ([param 13])
