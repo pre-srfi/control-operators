@@ -119,16 +119,20 @@
     <p>The following naming conventions imply type restrictions:</p>
 
     <dl>
-      <dt><code><var>obj</var></code></dt>
-      <dd>any object</dd>
+      <dt><code><var>obj</var></code>, <code><var>key</var></code></dt>
+      <dd>any objects</dd>
       <dt><code><var>name</var></code></dt>
       <dd>symbol</dd>
+      <dt><code><var>list</var></code></dt>
+      <dd>list</dd>
       <dt><code><var>thunk</var></code>, <code><var>pre-thunk</var></code>, <code><var>post-thunk</var></code></dt>
       <dd>zero-argument procedures</dd>
       <dt><code><var>cont</var></code></dt>
       <dd>continuation</dd>
       <dt><code><var>prompt-tag</var></code></dt>
       <dd>prompt tag</dd>
+      <dt><code><var>mark-set</var></code></dt>
+      <dd>continuation mark set or <code>#f</code></dd>
       <dt><code><var>handler</var></code></dt>
       <dd>procedure or <code>#f</code></dd>
       <dt><code><var>k</var></code></dt>
@@ -299,7 +303,102 @@
 
     <h3>Continuation Marks</h3>
 
-    <p>TBD</p>
+    <dl class="entries">
+      <dt class="syntax"><code>(with-continuation-mark <span class="token">key-expr</span> <span class="token">val-expr</span> <span class="token">expression</span>)</code></dt>
+      <dd>
+	<p><i>Syntax:</i>
+	  TBD</p>
+
+	<p><i>Semantics:</i>
+	  TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(call-with-immediate-continuation-mark <var>key</var> <var>proc</var> <var>obj</var>)</code></dt>
+      <dd>
+	<p>If not supplied, <code><var>obj</var></code> defaults
+	  to <code>#f</code>.</p>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(continuation-marks <var>cont</var>)</code></dt>
+      <dt class="procedure"><code>(continuation-marks <var>cont</var> <var>prompt-tag</var>)</code></dt>
+      <dd>
+	<p>If not supplied, <code><var>prompt-tag</var></code> defaults to the value returned
+	  by <code>default-continuation-prompt-tag</code>.</p>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(current-continuation-marks)</code></dt>
+      <dt class="procedure"><code>(current-continuation-marks <var>prompt-tag</var>)</code></dt>
+      <dd>
+	<p>If not supplied, <code><var>prompt-tag</var></code> defaults to the value returned
+	  by <code>default-continuation-prompt-tag</code>.</p>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(continuation-mark-set? <var>obj</var>)</code></dt>
+      <dd>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(continuation-mark-set-&gt;list <var>mark-set</var> <var>key</var>)</code></dt>
+      <dt class="procedure"><code>(continuation-mark-set-&gt;list <var>mark-set</var> <var>key</var> <var>prompt-tag</var>)</code></dt>
+      <dd>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(continuation-mark-set-&gt;list* <var>mark-set</var> <var>list</var>)</code></dt>
+      <dt class="procedure"><code>(continuation-mark-set-&gt;list* <var>mark-set</var> <var>list</var> <var>obj</var>)</code></dt>
+      <dt class="procedure"><code>(continuation-mark-set-&gt;list* <var>mark-set</var> <var>list</var> <var>obj</var> <var>prompt-tag</var>)</code></dt>
+      <dd>
+	<p>If not supplied, <code><var>obj</var></code> defaults
+	to <code>#f</code>.</p>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(continuation-mark-set-&gt;iterator <var>mark-set</var> <var>list</var>)</code></dt>
+      <dt class="procedure"><code>(continuation-mark-set-&gt;iterator <var>mark-set</var> <var>list</var> <var>obj</var>)</code></dt>
+      <dt class="procedure"><code>(continuation-mark-set-&gt;iterator <var>mark-set</var> <var>list</var> <var>obj</var> <var>prompt-tag</var></code></dt>
+      <dd>
+	<p>If not supplied, <code><var>obj</var></code> defaults
+	to <code>#f</code>.</p>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(continuation-mark-set-first <var>mark-set</var> <var>key</var>)</code></dt>
+      <dt class="procedure"><code>(continuation-mark-set-first <var>mark-set</var> <var>key</var> <var>obj</var>)</code></dt>
+      <dt class="procedure"><code>(continuation-mark-set-first <var>mark-set</var> <var>key</var> <var>obj</var> <var>prompt-tag</var>)</code></dt>
+      <dd>
+	<p>If not supplied, <code><var>obj</var></code> defaults
+	to <code>#f</code>.</p>
+	<p>TBD</p>
+      </dd>
+    </dl>
+
+    <h3>Mark Keys</h3>
+
+    <p><dfn>Mark keys</dfn> can be used as opaque keys for
+    continuation marks.</p>
+
+    <dl class="entries">
+      <dt class="procedure"><code>(make-continuation-mark-key)</code></dt>
+      <dt class="procedure"><code>(make-continuation-mark-key <var>name</var>)</code></dt>
+      <dd>
+	<p>Returns a mark key that is not <code>equal?</code> to any
+	  prior or future results
+	  from <code>make-continuation-mark-key</code>.
+	</p>
+	<p>
+	  The optional <code><var>name</var></code> argument may be
+	  used by the implementation for printing the mark key.
+	</p>
+      </dd>
+      <dt class="procedure"><code>(continuation-mark-key? <var>obj</var>)</code></dt>
+      <dd>
+	<p>Returns <code>#t</code> if <code><var>obj</var></code> is a
+	mark key, and <code>#f</code> otherwise.</p>
+      </dd>
+    </dl>
 
     <h2 id="implementation">Implementation</h2>
 
@@ -380,7 +479,6 @@
       </dd>
 
       <dt class="procedure"><code>(%lambda-box-ref <var>proc</var> <var>obj</var>)</code></dt>
-
       <dd>
 	<p>If <var>proc</var> is a procedure tagged with a location,
 	  the <code>%lambda-box-ref</code> procedure returns the value
