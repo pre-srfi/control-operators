@@ -23,14 +23,31 @@
 ;; SOFTWARE.
 
 (library (control-operators testing)
-  (export test)
-  (import (except (rnrs (6))
-		  call/cc
-		  call-with-current-continuation
-		  dynamic-wind
-		  guard)
+  (export test-begin test-end test)
+  (import (rnrs (6))
 	  (control-operators define-who)
-	  (control-operators))
+	  (only (control-operators) run))
+
+  (define *count* 0)
+  (define *fail* #f)
+
+  (define test-begin
+    (lambda (name)
+      (display "# Starting test ")
+      (display name)
+      (newline)))
+
+  (define test-end
+    (lambda ()
+      (display "1..")
+      (display *count*)
+      (newline)
+      (when *fail*
+	(exit #f))))
+
+  (define-record-type exception
+    (nongenerative) (sealed #t)
+    (fields condition))
 
   (define-syntax/who test
     (lambda (stx)
@@ -39,28 +56,25 @@
 	 #'(test #f expected-expr test-expr)]
 	[(_ name expected-expr test-expr)
 	 #'(let-values ([expected expected-expr]
-			[result (run (lambda () test-expr))])
-	     (check expected result))]
+			[result (guard (c [else (make-exception c)])
+				  (run (lambda () test-expr)))])
+	     (do-test name expected result))]
 	[_
 	 (syntax-violation who "invalid syntax" stx)])))
 
-  (define check
-    (lambda (expected result)
-      (unless (equal? expected result)
-	(display "FAIL\n")
-	(display "  Expected values:")
-	(print-values expected)
-	(display "  Actual values:  ")
-	(print-values result)
-	(exit #f))))
-
-  (define print-values
-    (lambda (vals)
-      (do ([vals vals (cdr vals)])
-	  ((null? vals) (newline))
-	(display " ")
-	(display (car vals)))))
-  )
+  (define do-test
+    (lambda (name expected result)
+      (set! *count* (fx+ *count* 1))
+      (if (equal? expected result)
+	  (display "ok ")
+	  (begin
+	    (set! *fail* #t)
+	    (display "not ok ")))
+      (display *count*)
+      (when name
+	(display " - ")
+	(display name))
+      (newline))))
 
 ;; Local Variables:
 ;; mode: scheme

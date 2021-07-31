@@ -30,6 +30,10 @@
 	(control-operators)
 	(control-operators testing))
 
+;;; Test Begin
+
+(test-begin "Control Operators")
+
 ;;; Evaluation
 
 (test 10 10)
@@ -199,6 +203,10 @@
 			 (lambda ()
 			   (get))))
 	    (lambda () (put-string p "out")))))
+
+;;; Test End
+
+(test-end)
 
 ;; Local Variables:
 ;; mode: scheme

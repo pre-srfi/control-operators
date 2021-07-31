@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>SRFI XXX: Control Operators</title>
+    <link href="/favicon.png" rel="icon" sizes="192x192" type="image/png">
+    <link rel="stylesheet" href="https://srfi.schemers.org/srfi.css" type="text/css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body
+      {
+	  font-family: serif;
+      }
+      span.token
+      {
+          font-family: serif;
+      }
+      span.token::before
+      {
+          content: "⟨";
+      }
+      span.token::after
+      {
+          content: "⟩";
+      }
+      dl.entries dt
+      {
+	  background-color: lightgrey;
+      }
+      dl.entries dd
+      {
+	  margin-left: 0;
+      }
+      dl.entries > dt.condition-type::after
+      {
+	  float: right;
+	  content: "condition type"
+      }
+      dl.entries > dt.procedure::after
+      {
+	  float: right;
+	  content: "procedure"
+      }
+      dl.entries > dt.syntax::after
+      {
+	  float: right;
+	  content: "syntax"
+      }
+      pre, code
+      {
+	  font-size: smaller;
+      }
+      </style>
+  </head>
+  <body>
+    <h1><a href="https://srfi.schemers.org/"><img class="srfi-logo" src="https://srfi.schemers.org/srfi-logo.svg" alt="SRFI surfboard logo" /></a>XXX: Control Operators</h1>
+
+    <p>by Marc Nieper-Wißkirchen</p>
+
+    <h2 id="status">Status</h2>
+
+    <h2 id="abstract">Abstract</h2>
+
+    <p>This SRFI defines a rich set of control operators, which has
+      originally been implemented in this form
+      in <a href="#racket"><cite>Racket</cite></a>, for the Scheme
+      programming language.  This set includes the
+      venerable <code>call/cc</code>.</p>
+
+    <p>Prompts delimit continuations,
+      and all continuations are conceptually delimited, at the latest
+      by the default prompt at the start of each thread.  Instead, continuations
+      are divided into composable and non-composable continuations.</p>
+
+    <p>To investigate continuations, this SRFI supports continuation
+      marks and offers operators to set and retrieve them.</p>
+
+    <h2 id="issues">Issues</h2>
+
+    <p>None at present.</p>
+
+    <h2 id="rationale">Rationale</h2>
+
+    <p>The aim of this SRFI is to provide a consistent set of control
+      operators vastly extending the scope of the venerable pair
+      of <code>call/cc</code> and <code>dynamic-wind</code>.  The
+      procedures and syntax in this SRFI can be presented as an
+      <a href="#sperber"><cite>R<sup>6</sup>RS</cite></a> or as
+      an <a href="#shinn"><cite>R<sup>7</sup>RS</cite></a> library,
+      which would be named <code>(srfi :XXX control)</code>
+      or <code>(srfi XXX)</code>, respectively.  Although a portable
+      implementation is not possible, it is demonstrated by the sample
+      implementation that a small set of primitives, which can easily
+      be provided by any Scheme implementation, suffices to implement
+      the rich operators in this SRFI.</p>
+
+    <p>In detail, the contributions of this SRFI are the following:</p>
+
+    <h3>Continuations and Prompts</h3>
+
+    <p>As explained in the <cite>R<sup>6</sup>RS</cite> and
+      the <cite>R<sup>7</sup>RS</cite>, whenever a Scheme expression
+      is evaluated, there is a <dfn>continuation</dfn> wanting the
+      result of the expression.  Each evaluation step can alter the
+      current continuation.  For example, non-tail calls let the
+      current continuation grow, while returns from non-tail calls let
+      it shrink.</p>
+
+    <p>Certain control operations can change the current continuation
+      more radically.  The Scheme procedure <code>call/cc</code>
+      allows capturing the current continuation and reifies it into a
+      procedure that, when later called, abandons the then current
+      continuation and replaces it with the captured one.</p>
+
+    <p>Conceptually, only an end segment of the current continuation
+      is ever replaced.  For example, when running a Scheme program,
+      running a thread, or evaluating an expression at the REPL
+      prompt, the old and the new current continuation always share an
+      initial segment at least up to the point when the program was
+      started, the thread was started, or the expression sent to the
+      REPL.</p>
+
+    <p>Therefore, <code>call/cc</code> never has to, nor actually does
+      capture the whole current continuation, but only an end segment.
+      Reinstating the captured continuation means to replace the end
+      segment of the then current continuation.</p>
+
+    <p>With <code>call/cc</code> alone, the programmer has no control
+      over the size of this end segment.  This SRFI offers operators
+      to exactly do this.  With these operators, the programmer can
+      install <dfn>continuation prompts</dfn> identified
+      by <dfn>prompt tags</dfn> in the current continuation.  When a
+      continuation is later captured, it is delimited by the nearest
+      continuation prompt with a given prompt tag.  Default prompts
+      are installed at the start of each program, the start of each
+      thread, and when expressions are sent to the REPL.</p>
+
+    <h3>Composable and Non-Composable Continuations</h3>
+
+    TBD
+
+    <h3>Continuation Marks</h3>
+
+    TBD
+
+    <h3>Continuations and Threads</h3>
+
+    TBD
+
+    <h2 id="specification">Specification</h2>
+
+    <h3>Entry format</h3>
+
+    <p>The following naming conventions imply type restrictions:</p>
+
+    <dl>
+      <dt><code><var>obj</var></code>, <code><var>key</var></code></dt>
+      <dd>any objects</dd>
+      <dt><code><var>name</var></code></dt>
+      <dd>symbol</dd>
+      <dt><code><var>list</var></code></dt>
+      <dd>list</dd>
+      <dt><code><var>thunk</var></code>, <code><var>pre-thunk</var></code>, <code><var>post-thunk</var></code></dt>
+      <dd>zero-argument procedures</dd>
+      <dt><code><var>cont</var></code></dt>
+      <dd>continuation</dd>
+      <dt><code><var>prompt-tag</var></code></dt>
+      <dd>prompt tag</dd>
+      <dt><code><var>mark-set</var></code></dt>
+      <dd>continuation mark set or <code>#f</code></dd>
+      <dt><code><var>handler</var></code></dt>
+      <dd>procedure or <code>#f</code></dd>
+      <dt><code><var>k</var></code></dt>
+      <dd>undelimited continuation</dd>
+    </dl>
+
+    <h3>Conditions</h3>
+
+    <dl class="entries">
+      <dt class="condition-type"><code>&continuation</code></dt>
+      <dt class="procedure"><code>(make-continuation-condition <var>obj</var></code>)</dt>
+      <dt class="procedure"><code>(continuation-condition? <var>obj</var></code>)</dt>
+      <dt class="procedure"><code>(continuation-prompt-tag <var>condition</var></code>)</dt>
+      <dd>
+	<p>
+	  This condition type could be defined by
+	</p>
+	<pre>(define-condition-type &continuation &error
+  make-continuation-condition continuation-condition?
+  (prompt-tag continuation-prompt-tag))</pre>
+	<p>
+	  This condition type describes errors that occurred during
+	  non-local control
+	  operations.  <code><var>Prompt-tag</var></code> should be
+	  the tag of the delimiting prompt.</p>
+      </dd>
+    </dl>
+
+    <h3>Continuation Prompts</h3>
+
+    <p>Continuation prompts are tagged with <dfn>prompt tags</dfn>,
+      which are opaque values.</p>
+
+    <dl class="entries">
+      <dt><code>(call-with-continuation-prompt <var>thunk</var>)</code></dt>
+      <dt><code>(call-with-continuation-prompt <var>thunk</var> <var>prompt-tag</var>)</code></dt>
+      <dt><code>(call-with-continuation-prompt <var>thunk</var> <var>prompt-tag</var> <var>handler</var>)</code></dt>
+      <dd>
+	<p>If not supplied, <code><var>prompt-tag</var></code>
+	  defaults to the value returned
+	  by <code>default-continuation-prompt-tag</code>,
+	  and <code><var>handler</var></code> defaults
+	  to <code>#f</code>.</p>
+
+	<p>
+	  The <code>call-with-continuation-prompt</code> procedure
+	  calls <code><var>thunk</var></code> without arguments,
+	  returning the results of this call.
+	  Moreover, <code>call-with-continuation-prompt</code> tags
+	  the dynamic extent of the call
+	  to <code><var>thunk</var></code>
+	  with <code><var>prompt-tag</var></code> and
+	  records <code><var>handler</var></code> with the prompt
+	  if <code><var>handler</var></code> is not <code>#f</code>,
+	  and with a default handler otherwise.
+	</p>
+
+	<p>The default handler is a procedure that takes a single
+	  argument <code><var>thunk</var></code>.  When the default
+	  handler is called, it calls <code><var>thunk</var></code>
+	  without arguments, returning the results of this code.
+	  Moreover, the default handler tags the dynamic extent of the
+	  call to <code><var>thunk</var></code>
+	  with <code><var>prompt-tag</var></code> and records itself
+	  with the prompt.</p>
+
+	<p>The calls to <code><var>thunk</var></code> are never in tail
+	context.</p>
+      </dd>
+
+      <dt><code>(abort-current-continuation <var>prompt-tag</var> <var>obj<var>
+      &hellip;)</code></dt>
+      <dd>
+	<p>The <code>abort-current-continuation</code> procedure
+	  aborts all active procedure calls in the current
+	  continuation until a procedure call whose dynamic extent is
+	  tagged with <code><var>prompt-tag</var></code> is aborted
+	  and replaces them with a call to the handler recorded with
+	  the prompt tag with the arguments <code><var>obj</var></code>s.</p>
+	<p>
+	  When no procedure call whose dynamic extent is tagged
+	  with <code><var>prompt-tag</var></code> is active in the current
+	  continuation, an exception with condition
+	  type <code>&continuation</code> is raised.</p>
+      </dd>
+    </dl>
+
+    <h3>Prompt Tags</h3>
+
+    <dl class="entries">
+      <dt class="procedure"><code>(make-continuation-prompt-tag)</code></dt>
+      <dt class="procedure"><code>(make-continuation-prompt-tag <var>name</var>)</code></dt>
+      <dd>
+	<p>Returns a prompt tag that is not <code>equal?</code> to any
+	  prior or future results
+	  from <code>make-continuation-prompt-tag</code>
+	  or <code>default-continuation-prompt-tag</code>.
+	</p>
+	<p>
+	  The optional <code><var>name</var></code> argument may be
+	  used by the implementation for printing the prompt tag.
+	</p>
+      </dd>
+
+      <dt class="procedure"><code>(default-continuation-prompt-tag)</code></dt>
+      <dd>
+	<p>Returns a constant default prompt tag.</p>
+      </dd>
+
+      <dt class="procedure"><code>(continuation-prompt-tag? <var>obj</var>)</code></dt>
+      <dd>
+	<p>Returns <code>#t</code> if <code><var>obj</var></code> is a
+	  prompt tag, and <code>#f</code> otherwise.</p/
+      </dd>
+    </dl>
+
+    <h3>Continuations</h3>
+
+    <p>Each <dfn>continuation</dfn> is a procedure.</p>
+
+    <dl class="entries">
+      <dt class="procedure"><code>(call-with-current-continuation <var>proc</var>)</code></dt>
+      <dt class="procedure"><code>(call-with-current-continuation <var>proc</var> <var>prompt-tag</var>)</code></dt>
+      <dt class="procedure"><code>(call/cc <var>proc</var>)</code></dt>
+      <dt class="procedure"><code>(call/cc <var>proc</var> <var>prompt-tag</var>)</code></dt>
+      <dd>
+	<p>If not supplied, <code><var>prompt-tag</var></code> defaults to the value returned
+	  by <code>default-continuation-prompt-tag</code>.</p>
+	<p>TBD</p>
+	<p>The identifier <code>call/cc</code> is an alias for <code>call-with-current-continuation</code>.</p>
+      </dd>
+
+      <dt class="procedure"><code>(call-with-composable-continuation <var>proc</var>)</code></dt>
+      <dt class="procedure"><code>(call-with-composable-continuation <var>proc</var> <var>prompt-tag</var>)</code></dt>
+      <dd>
+	<p>If not supplied, <code><var>prompt-tag</var></code> defaults to the value returned
+	  by <code>default-continuation-prompt-tag</code>.</p>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(continuation? <var>obj</var>)</code></dt>
+      <dd>
+	<p>Returns <code>#t</code> if <code><var>obj</var></code> is a
+	  continuation, and <code>#f</code> otherwise.</p>
+      </dd>
+
+      <dt class="procedure"><code>(call-in-continuation <var>cont</var> <var>thunk</var>)</code></dt>
+      <dd>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(call-with-continuation-barrier <var>thunk</var>)</code></dt>
+      <dd>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(continuation-prompt-available? <var>prompt-tag</var>)</code></dt>
+      <dt class="procedure"><code>(continuation-prompt-available? <var>prompt-tag</var> <var>cont</var>)</code></dt>
+      <dd>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(dynamic-wind <var>pre-thunk</var> <var>thunk</var> <var>post-thunk</var>)</code></dt>
+      <dd>
+	<p>TBD</p>
+      </dd>
+    </dl>
+
+    <h3>Continuation Marks</h3>
+
+    <dl class="entries">
+      <dt class="syntax"><code>(with-continuation-mark <span class="token">key-expr</span> <span class="token">val-expr</span> <span class="token">expression</span>)</code></dt>
+      <dd>
+	<p><i>Syntax:</i>
+	  TBD</p>
+
+	<p><i>Semantics:</i>
+	  TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(call-with-immediate-continuation-mark <var>key</var> <var>proc</var> <var>obj</var>)</code></dt>
+      <dd>
+	<p>If not supplied, <code><var>obj</var></code> defaults
+	  to <code>#f</code>.</p>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(continuation-marks <var>cont</var>)</code></dt>
+      <dt class="procedure"><code>(continuation-marks <var>cont</var> <var>prompt-tag</var>)</code></dt>
+      <dd>
+	<p>If not supplied, <code><var>prompt-tag</var></code> defaults to the value returned
+	  by <code>default-continuation-prompt-tag</code>.</p>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(current-continuation-marks)</code></dt>
+      <dt class="procedure"><code>(current-continuation-marks <var>prompt-tag</var>)</code></dt>
+      <dd>
+	<p>If not supplied, <code><var>prompt-tag</var></code> defaults to the value returned
+	  by <code>default-continuation-prompt-tag</code>.</p>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(continuation-mark-set? <var>obj</var>)</code></dt>
+      <dd>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(continuation-mark-set-&gt;list <var>mark-set</var> <var>key</var>)</code></dt>
+      <dt class="procedure"><code>(continuation-mark-set-&gt;list <var>mark-set</var> <var>key</var> <var>prompt-tag</var>)</code></dt>
+      <dd>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(continuation-mark-set-&gt;list* <var>mark-set</var> <var>list</var>)</code></dt>
+      <dt class="procedure"><code>(continuation-mark-set-&gt;list* <var>mark-set</var> <var>list</var> <var>obj</var>)</code></dt>
+      <dt class="procedure"><code>(continuation-mark-set-&gt;list* <var>mark-set</var> <var>list</var> <var>obj</var> <var>prompt-tag</var>)</code></dt>
+      <dd>
+	<p>If not supplied, <code><var>obj</var></code> defaults
+	to <code>#f</code>.</p>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(continuation-mark-set-&gt;iterator <var>mark-set</var> <var>list</var>)</code></dt>
+      <dt class="procedure"><code>(continuation-mark-set-&gt;iterator <var>mark-set</var> <var>list</var> <var>obj</var>)</code></dt>
+      <dt class="procedure"><code>(continuation-mark-set-&gt;iterator <var>mark-set</var> <var>list</var> <var>obj</var> <var>prompt-tag</var></code></dt>
+      <dd>
+	<p>If not supplied, <code><var>obj</var></code> defaults
+	to <code>#f</code>.</p>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(continuation-mark-set-first <var>mark-set</var> <var>key</var>)</code></dt>
+      <dt class="procedure"><code>(continuation-mark-set-first <var>mark-set</var> <var>key</var> <var>obj</var>)</code></dt>
+      <dt class="procedure"><code>(continuation-mark-set-first <var>mark-set</var> <var>key</var> <var>obj</var> <var>prompt-tag</var>)</code></dt>
+      <dd>
+	<p>If not supplied, <code><var>obj</var></code> defaults
+	to <code>#f</code>.</p>
+	<p>TBD</p>
+      </dd>
+    </dl>
+
+    <h3>Mark Keys</h3>
+
+    <p><dfn>Mark keys</dfn> can be used as opaque keys for
+    continuation marks.</p>
+
+    <dl class="entries">
+      <dt class="procedure"><code>(make-continuation-mark-key)</code></dt>
+      <dt class="procedure"><code>(make-continuation-mark-key <var>name</var>)</code></dt>
+      <dd>
+	<p>Returns a mark key that is not <code>equal?</code> to any
+	  prior or future results
+	  from <code>make-continuation-mark-key</code>.
+	</p>
+	<p>
+	  The optional <code><var>name</var></code> argument may be
+	  used by the implementation for printing the mark key.
+	</p>
+      </dd>
+      <dt class="procedure"><code>(continuation-mark-key? <var>obj</var>)</code></dt>
+      <dd>
+	<p>Returns <code>#t</code> if <code><var>obj</var></code> is a
+	mark key, and <code>#f</code> otherwise.</p>
+      </dd>
+    </dl>
+
+    <h2 id="implementation">Implementation</h2>
+
+    <h3>Portability</h3>
+
+    <p>Implementing the control operators presented in this SRFI as a
+      portable R6RS or portable R7RS library is not possible.</p>
+
+    <h3>Sample Implementation</h3>
+
+    <p>The sample implementation accompanying this SRFI demonstrates
+      how the control operators can be implemented on top of a small
+      set of primitives.  If in doubt, it favors simplicity and
+      clarity over speed.</p>
+
+    <p>The small set of primitives that have to be provided are as follows:</p>
+
+    <dl class="entries">
+      <dt class="procedure"><code>(%call-with-current-continuation <var>proc</var>)</code></dt>
+      <dd>
+	<p>It is an error if <code><var>proc</var></code> is not a
+	procedure taking a single argument.</p>
+	<p>Calls <code><var>proc</var></code> with the current undelimited continuation.</p>
+	<p>If a call to <code>%call/cc</code> occurs in a tail
+	context, the call to <code><var>proc</var></code> is also in a
+	  tail context.</p>
+	<p>An undelimited continuation is represented by a
+	  procedure <code><var>k</var></code> that, when it is later
+	  called, abandons whatever undelimited continuation is in
+	  effect at that later time and instead reinstates the
+	  continuation that is represented by it.</p>
+
+	<p><i>Note:</i> The
+	  primitive <code>%call-with-current-continuation</code> does
+	  neither support <code>dynamic-wind</code>, nor continuation
+	  barriers.</p>
+      </dd>
+      <dt class="procedure"><code>(%call-in-continuation <var>k</var> <var>thunk</var>)</code></dt>
+      <dd>
+	<p>Abandons whatever undelimited continuation is in effect,
+	  and calls <code><var>thunk</var></code> with the undelimited
+	  continuation represented by <code><var>k</var></code> as the
+	  continuation of the call.</p>
+      </dd>
+      <dt class="procedure"><code>(%continuation=? <var>k<sub>1</sub></var> <var>k<sub>2</sub></var>)</code></dt>
+      <dd>
+	<p>Returns <code>#t</code> if the undelimited continuation
+	  represented by <code><var>k<sub>1</sub></var></code> is the
+	  same as the undelimited continuation represented
+	  by <code><var>k<sub>2</sub></var></code>,
+	  and <code>#f</code> otherwise.</p>
+	<p><i>Note:</i> Procedure equivalence with respect to the
+	  standard predicates <code>eq?</code>, <code>eqv?</code>,
+	  and <code>equal?</code> is unspecified at least in some
+	  versions of the Scheme programming language.</p>
+      </dd>
+
+      <dt class="syntax"><code>(%lambda-box <span class="token">expression</span> <span class="token">formals</span>
+	  <span class="token">body</span>)</code></dt>
+      <dd>
+	<p><i>Syntax:</i>
+	  <code><span class="token">Expression</span></code> must be
+	  an
+	  expression, <code><span class="token">formals</span></code>
+	  must be a formal parameter list
+	  and <code><span class="token">body</span></code> must be a
+	  body.</p>
+
+	<p><i>Semantics:</i>
+	  When a <code>%lambda-box</code> expression is evaluated,
+	  it first
+	  evaluates <code><span class="token">expression</span></code>,
+	  stores the resulting value in a new location, and then
+	  returns a procedure that when later called with some
+	  arguments behaves as if the procedure were created by
+	  evaluating <code>(lambda <span class="token">formals</span> <span class="token">body</span>)</code>
+	  and that is tagged with the new location.</p>
+      </dd>
+
+      <dt class="procedure"><code>(%lambda-box-ref <var>proc</var> <var>obj</var>)</code></dt>
+      <dd>
+	<p>If <var>proc</var> is a procedure tagged with a location,
+	  the <code>%lambda-box-ref</code> procedure returns the value
+	  stored in this location, and <code>obj</code> otherwise.</p>
+      </dd>
+
+    </dl>
+
+    <h3>Other Implementations</h3>
+
+    <p>The control operators of this SRFI are natively implemented in Racket.</p>
+
+    <h2 id="acknowledgements">Acknowledgements</h2>
+
+    <p>This SRFI borrows heavily from Racket's collection of control
+    operators.</p>
+
+    <p>The sample implementation builds upon the ideas presented
+      in <a href="#dybvig"><cite>A Monadic Framework for Delimited
+      Continuations</cite></a> and found in Racket's CS
+      implementation.</p>
+
+    <p>Finally, I would like to thank Arthur A. Gleckler for
+      <a href="https://srfi-email.schemers.org/srfi-224/msg/16888913/">encouraging me</a> to write a SRFI covering delimited
+      continuations.</p>
+
+    <h2 id="references">References</h2>
+
+    <ol class="bibliography">
+      <li id="dybvig">
+	<p>R. Kent Dybvig, Simon Peyton Jones, and Amr
+	  Sabry: <cite>A monadic framework for delimited
+	    continuations</cite>, Journal of Functional Programming, Volume
+	  17, Issue 6, November 2007,
+	  pp. 687-730. DOI: <a href="https://doi.org/10.1017/S0956796807006259">10.1017/S0956796807006259</a>.</p>
+      </li>
+      <li id="racket"><p><a href="https://racket-lang.org/">Racket</a>.</p>
+      <li id="shinn">
+	<p>Alex Shinn, John Cowan, Arthur
+	  A. Gleckler: <a href="https://small.r7rs.org/attachment/r7rs.pdf"><cite>Revised<sup>7</sup>
+	  Report on the Algorithmic Language Scheme</cite></a>.</p>
+      </li>
+      <li id="sperber">
+	<p>Michael Sperber, R. Kent Dybvig, Matthew Flatt,
+	  Anton van Straaten, Robby Findler, and Jacob
+	  Matthews: <cite>Revised<sup>6</sup> Report on the Algorithmic
+	    Language Scheme</cite>. Journal of Functional Programming,
+	  Volume 19, Supplement S1, August 2009,
+	  pp. 1-301. DOI: <a href="https://doi.org/10.1017/S0956796809990074">10.1017/S0956796809990074</a>.</p>
+      </li>
+    </ol>
+
+    <h2 id="copyright">Copyright</h2>
+    <p>&copy; 2021 Marc Nieper-Wißkirchen.</p>
+
+    <p>
+      Permission is hereby granted, free of charge, to any person
+      obtaining a copy of this software and associated documentation files
+      (the "Software"), to deal in the Software without restriction,
+      including without limitation the rights to use, copy, modify, merge,
+      publish, distribute, sublicense, and/or sell copies of the Software,
+      and to permit persons to whom the Software is furnished to do so,
+      subject to the following conditions:</p>
+
+    <p>
+      The above copyright notice and this permission notice (including the
+      next paragraph) shall be included in all copies or substantial
+      portions of the Software.</p>
+    <p>
+      THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+      EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+      MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+      NONINFRINGEMENT.  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+      BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+      ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+      CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+      SOFTWARE.</p>
+
+    <hr>
+    <address>Editor: <a href="mailto:srfi-editors+at+srfi+dot+schemers+dot+org">Arthur A. Gleckler</a></address></body></html>
