@@ -405,15 +405,14 @@
       (%continuation=? k (empty-continuation))))
 
   (define make-initial-metacontinuation
-    (lambda (k)
+    (lambda (k parameterization)
       (list
        (make-metacontinuation-frame
 	(default-continuation-prompt-tag)
 	k
 	(make-default-handler (default-continuation-prompt-tag))
-	(marks (parameterization-continuation-mark-key)
-	       (make-parameterization))
-	'()))))
+	(make-marks parameterization)
+	#f))))
 
   (define run
     (lambda (thunk)
@@ -421,9 +420,12 @@
        (lambda ()
 	 (%call-with-current-continuation
 	  (lambda (k)
-	    (%current-dynamic-environment
-	     (make-dynamic-environment
-	      (make-initial-metacontinuation k) (make-marks (make-parameterization)) '()))
+	    (let ([parameterization (make-parameterization)])
+	      (%current-dynamic-environment
+	       (make-dynamic-environment
+		(make-initial-metacontinuation k parameterization)
+		(make-marks parameterization)
+		'())))
 	    (rnrs:with-exception-handler
 	     (lambda (con)
 	       ((current-exception-handler) con))
