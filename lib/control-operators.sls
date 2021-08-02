@@ -124,11 +124,6 @@
       (lambda ()
 	barrier-tag)))
 
-  (define root-continuation-prompt-tag
-    (let ([prompt-tag (make-continuation-prompt-tag 'root)])
-      (lambda ()
-	prompt-tag)))
-
   ;; Continuation info
 
   (define-record-type continuation-info
@@ -418,13 +413,7 @@
 	(make-default-handler (default-continuation-prompt-tag))
 	(marks (parameterization-continuation-mark-key)
 	       (make-parameterization))
-	'())
-       (make-metacontinuation-frame
-	(root-continuation-prompt-tag)
-	(lambda arg* (assert #f))
-	(lambda arg* (assert #f))
-	#f
-	#f))))
+	'()))))
 
   (define run
     (lambda (thunk)
