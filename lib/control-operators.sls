@@ -209,8 +209,8 @@
   ;; Marks
 
   (define make-marks
-    (lambda ()
-      '()))
+    (lambda (parameterization)
+      (list (cons (parameterization-continuation-mark-key) parameterization))))
 
   (define marks
     (lambda (key val)
@@ -254,7 +254,7 @@
 
   (define clear-marks!
     (lambda ()
-      (current-marks (make-marks))))
+      (current-marks (make-marks (current-parameterization)))))
 
   (define set-mark!
     (lambda (key val)
@@ -434,7 +434,7 @@
 	  (lambda (k)
 	    (%current-dynamic-environment
 	     (make-dynamic-environment
-	      (make-initial-metacontinuation k) (make-marks) '()))
+	      (make-initial-metacontinuation k) (make-marks (make-parameterization)) '()))
 	    (rnrs:with-exception-handler
 	     (lambda (con)
 	       ((current-exception-handler) con))
@@ -981,6 +981,8 @@
 
   (define current-parameterization
     (lambda ()
+      (marks-ref (current-marks) (parameterization-continuation-mark-key))
+      #;
       (continuation-mark-set-first
        #f
        (parameterization-continuation-mark-key)
