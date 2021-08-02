@@ -24,15 +24,17 @@
 
 (library (control-operators threading)
   (export %current-dynamic-environment
-	  %thread? %thread-start! %thread-yield! %thread-terminate!
+	  %current-thread %thread? %thread-start! %thread-yield! %thread-terminate!
 	  %thread-join!
 	  make-%mutex %mutex-lock! %mutex-unlock!
+	  make-%condition-variable %condition-variable-broadcast!
 	  %run)
   (import (rnrs (6))
 	  (control-operators primitives)
 	  (control-operators schedule))
 
   (define *exit-continuation*)
+  (define *current-thread*)
   (define *lock* #f)
 
   (define lock!
@@ -58,9 +60,26 @@
 	 (p #f)))))
 
   (define %mutex-unlock!
-    (lambda (mtx)
+    (case-lambda
+     [(mtx)
       (assert (%mutex? mtx))
-      (%mutex-locked?-set! mtx #f)))
+      (%mutex-locked?-set! mtx #f)]
+     [(mtx cv)
+      (assert (%mutex? mtx))
+      (assert (%condition-variable? cv))
+      (lock!)
+      (%mutex-locked?-set! mtx #f)
+      (%condition-variable-waiting-threads-set!
+       cv
+       (cons (%current-thread)
+	     (%condition-variable-waiting-threads cv)))
+      (let f ()
+	(unlock!)
+	(%thread-yield!)
+	(lock!)
+	(when (memq (%current-thread) (%condition-variable-waiting-threads cv))
+	  (f)))
+      (unlock!)]))
 
   (define %mutex-lock!
     (lambda (mtx)
@@ -75,6 +94,19 @@
 	    (begin
 	      (%mutex-locked?-set! mtx #t)
 	      (unlock!))))))
+
+  (define-record-type %condition-variable
+    (nongenerative) (sealed #t) (opaque #t)
+    (fields (mutable waiting-threads))
+    (protocol
+     (lambda (p)
+       (lambda ()
+	 (p '())))))
+
+  (define %condition-variable-broadcast!
+    (lambda (cv)
+      (assert (%condition-variable? cv))
+      (%condition-variable-waiting-threads-set! cv '())))
 
   (define interrupt-handler
     (lambda ()
@@ -100,6 +132,10 @@
        (lambda ()
 	 ((n (lambda () (assert #f))))))))
 
+  (define %current-thread
+    (lambda ()
+      *current-thread*))
+
   (define current-threads
     (let ([threads '()])
       (case-lambda
@@ -121,9 +157,9 @@
 	    (%call-with-current-continuation
 	     (lambda (k)
 	       (set! *exit-continuation* k)
+	       (set! *current-thread* (make-%primordial-thread))
 	       (current-threads
-		(list
-		 (make-%primordial-thread)))
+		(list *current-thread*))
 	       (unlock!)
 	       (let-values ([val* (thunk)])
 		 (lock!)
@@ -160,7 +196,7 @@
 	      (%call-with-current-continuation
 	       (lambda (k)
 		 (%thread-continuation-set! ot k)
-		 ((%thread-continuation nt))))
+		 (abort-to-thread nt)))
 	      (%current-dynamic-environment env)
 	      (unlock!))))))
 
@@ -172,14 +208,18 @@
       (%thread-terminated?-set! thread #t)
       (let ([t* (remq thread (current-threads))])
        	(current-threads t*)
-	((%thread-continuation (car t*))))))
+	(abort-to-thread (car t*)))))
 
   (define %thread-join!
     (lambda (thread)
       (do ()
 	  ((%thread-terminated? thread))
 	(%thread-yield!))))
-  )
+
+  (define abort-to-thread
+    (lambda (thread)
+      (set! *current-thread* thread)
+      ((%thread-continuation thread)))))
 
 ;; Local Variables:
 ;; mode: scheme

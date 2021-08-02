@@ -47,6 +47,7 @@
 	  current-thread thread? make-thread thread-name thread-specific
 	  thread-specific-set! thread-start! thread-yield!
 	  thread-terminate! thread-join!
+	  uncaught-exception? uncaught-exception-reason
 	  run
 	  (rename (call-with-current-continuation call/cc)))
   (import (rename (except (rnrs (6))
@@ -179,7 +180,8 @@
 
   (define-record-type dynamic-environment
     (nongenerative) (sealed #t) (opaque #t)
-    (fields (mutable metacontinuation) (mutable marks) (mutable winders)))
+    (fields (mutable metacontinuation) (mutable marks) (mutable winders)
+	    (mutable thread)))
 
   (define current-metacontinuation
     (case-lambda
@@ -421,12 +423,14 @@
        (lambda ()
 	 (%call-with-current-continuation
 	  (lambda (k)
-	    (let ([parameterization (make-parameterization)])
+	    (let ([parameterization (make-parameterization)]
+		  [thread (make-thread)])
 	      (%current-dynamic-environment
 	       (make-dynamic-environment
 		(make-initial-metacontinuation k parameterization)
 		(make-marks parameterization)
-		'())))
+		'()
+		thread)))
 	    (rnrs:with-exception-handler
 	     (lambda (con)
 	       ((current-exception-handler) con))
@@ -1207,13 +1211,9 @@
     (new runnable terminated)
     thread-state-set)
 
-  ;; FIXME: This has to become an element of %current-dynamic-environment.
-  (define %current-thread
-    (make-parameter #f))
-
   (define current-thread
     (lambda ()
-      (%current-thread)))
+      (dynamic-environment-thread (%current-dynamic-environment))))
 
   (define-record-type thread
     (nongenerative) (sealed #t) (opaque #t)
@@ -1232,8 +1232,9 @@
 	     (assertion-violation who "not a procedure" thunk))
 	   (p thunk #f name (thread-state new) #f '() #f)))
        (case-lambda
-	 [(thunk) (make-thread thunk #f)]
-	 [(thunk name) (make-thread thunk name)]))))
+	[() (p #f (%current-thread) 'primordial (thread-state runnable) #f '() #f)]
+	[(thunk) (make-thread thunk #f)]
+	[(thunk name) (make-thread thunk name)] ))))
 
   (define/who thread-start!
     (lambda (thread)
@@ -1244,22 +1245,34 @@
 	(error who "thread already started" thread))
       (let ([mtx (make-%mutex)]
 	    [thunk (thread-thunk thread)]
-	    [env (%current-dynamic-environment)])
+	    [env (make-dynamic-environment
+		  (current-metacontinuation)
+		  (current-marks)
+		  (current-winders)
+		  thread)]
+	    [parameterization (current-parameterization)])
 	(%mutex-lock! mtx)
 	(let ([t (%thread-start!
 		  (lambda ()
-		    (%mutex-lock! mtx)
-		    (%mutex-unlock! mtx)
-		    (%current-dynamic-environment env)
-		    ;; Take the full parameterization ...
-		    (parameterize
-			([%current-thread thread])
-		      ;; We can introduce a prompt here.  This, however, means
-		      ;; that we do not inherit the continuation marks.
-		      ;; We should also add an initial exception handler here.
-		      (thunk)
-		      ;; get result by thunk and set thread to terminated..
-		      )))])
+		    (%call-with-current-continuation
+		     (lambda (terminate!)
+		       (%mutex-lock! mtx)
+		       (%mutex-unlock! mtx)
+		       (%current-dynamic-environment env)
+		       (call-with-parameterization parameterization
+			 (lambda ()
+			   (with-exception-handler
+			    (lambda (con)
+			      (thread-current-state-set! thread (thread-state terminated))
+			      (thread-end-exception-set! thread (make-uncaught-exception con))
+			      (terminate!))
+			    (lambda ()
+			      (call-with-continuation-prompt
+			       (lambda ()
+				 (call-with-values thunk
+				   (lambda val*
+				     (thread-end-result-set! thread val*)))))))))))
+		    (thread-current-state-set! thread (thread-state terminated))))])
 	  (thread-thunk-set! thread #f)
 	  (thread-%thread-set! thread t)
 	  (thread-current-state-set! thread (thread-state runnable))
@@ -1282,7 +1295,13 @@
       (unless (thread? thread)
 	(assertion-violation who "not a thread" thread))
       ;; FIXME
-      (assert #f))))
+      (assert #f)))
+
+  (define-condition-type &uncaught-exception &error
+    make-uncaught-exception uncaught-exception?
+    (reason uncaught-exception-reason))
+
+  )
 
 ;; Local Variables:
 ;; mode: scheme

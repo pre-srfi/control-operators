@@ -42,6 +42,32 @@
 	       (%thread-join! t))))
 	  (equal? '(thread1 thread2) (list x1 x2))))
 
+(assert (let ([x #f])
+	  (%run
+	   (lambda ()
+	     (let ([t (%thread-start!
+			(lambda ()
+			  (set! x (%current-thread))))])
+	       (%thread-join! t)
+	       (and (eq? x t)
+		    (not (eq? x (%current-thread)))))))))
+
+(assert (%run
+	 (lambda ()
+	   (let ([x #f]
+		 [mtx (make-%mutex)]
+		 [cv (make-%condition-variable)])
+	     (%mutex-lock! mtx)
+	     (let ([t (%thread-start!
+		       (lambda ()
+			 (set! x 41)
+			 (%mutex-lock! mtx)
+			 (%condition-variable-broadcast! cv)
+			 (%mutex-unlock! mtx)))])
+	       (%mutex-unlock! mtx cv)
+	       (eq? x 41))))))
+
+
 ;; Local Variables:
 ;; mode: scheme
 ;; End:
