@@ -23,14 +23,19 @@
 ;; SOFTWARE.
 
 (library (control-operators schedule)
-  (export %schedule)
+  (export %call-with-interrupt-handler %set-timer!)
   (import (rnrs (6))
-	  (only (chezscheme) timer-interrupt-handler set-timer))
+	  (only (chezscheme) parameterize timer-interrupt-handler set-timer))
 
-  (define %schedule
-    (lambda (thunk)
-      (when thunk
-	(timer-interrupt-handler
-	 (lambda ()
-	   (set-timer 10)
-	   (thunk)))))))
+  (define %call-with-interrupt-handler
+    (lambda (handler thunk)
+      (parameterize ([timer-interrupt-handler handler])
+	(thunk))))
+
+  (define %set-timer!
+    (lambda (on?)
+      (set-timer (if on? 1000 0)))))
+
+;; Local Variables:
+;; mode: scheme
+;; End:

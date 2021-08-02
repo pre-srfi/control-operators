@@ -39,11 +39,13 @@
 
   (define lock!
     (lambda ()
+      ;(display "Lock!\n")
       (assert (not (locked?)))
       (set! *lock* #t)))
 
   (define unlock!
     (lambda ()
+      ;(display "Unlock!\n")
       (assert (locked?))
       (set! *lock* #f)))
 
@@ -110,7 +112,7 @@
 
   (define interrupt-handler
     (lambda ()
-      (%schedule interrupt-handler)
+      (%set-timer! #t)
       (unless (locked?)
 	(%thread-yield!))))
 
@@ -150,24 +152,27 @@
 
   (define %run
     (lambda (thunk)
-      (lock!)
-      (%schedule interrupt-handler)
-      (let-values
-	  ([val*
-	    (%call-with-current-continuation
-	     (lambda (k)
-	       (set! *exit-continuation* k)
-	       (set! *current-thread* (make-%primordial-thread))
-	       (current-threads
-		(list *current-thread*))
-	       (unlock!)
-	       (let-values ([val* (thunk)])
-		 (lock!)
-		 (apply values val*))))])
-	(%schedule #f)
-	(current-threads '())
-	(unlock!)
-	(apply values val*))))
+      (%call-with-interrupt-handler
+       interrupt-handler
+       (lambda ()
+	 (lock!)
+	 (%set-timer! #t)
+	 (let-values
+	     ([val*
+	       (%call-with-current-continuation
+		(lambda (k)
+		  (set! *exit-continuation* k)
+		  (set! *current-thread* (make-%primordial-thread))
+		  (current-threads
+		   (list *current-thread*))
+		  (unlock!)
+		  (let-values ([val* (thunk)])
+		    (lock!)
+		    (apply values val*))))])
+	   (%set-timer! #f)
+	   (current-threads '())
+	   (unlock!)
+	   (apply values val*))))))
 
   (define %thread-start!
     (lambda (thunk)
@@ -196,6 +201,7 @@
 	      (%call-with-current-continuation
 	       (lambda (k)
 		 (%thread-continuation-set! ot k)
+		 (current-threads t*)
 		 (abort-to-thread nt)))
 	      (%current-dynamic-environment env)
 	      (unlock!))))))
@@ -208,7 +214,9 @@
       (%thread-terminated?-set! thread #t)
       (let ([t* (remq thread (current-threads))])
        	(current-threads t*)
-	(abort-to-thread (car t*)))))
+	(if (eq? (%current-thread) (car t*))
+	    (unlock!)
+	    (abort-to-thread (car t*))))))
 
   (define %thread-join!
     (lambda (thread)

@@ -48,6 +48,7 @@
 	  thread-specific-set! thread-start! thread-yield!
 	  thread-terminate! thread-join!
 	  uncaught-exception? uncaught-exception-reason
+	  terminated-thread-exception?
 	  run
 	  (rename (call-with-current-continuation call/cc)))
   (import (rename (except (rnrs (6))
@@ -1223,16 +1224,18 @@
 	    (mutable current-state)
 	    (mutable specific)
 	    (mutable end-result)
-	    (mutable end-exception))
+	    (mutable end-exception)
+	    (mutable %mutex)
+	    (mutable %condition-variable))
     (protocol
      (lambda (p)
        (define/who make-thread
 	 (lambda (thunk name)
 	   (unless (procedure? thunk)
 	     (assertion-violation who "not a procedure" thunk))
-	   (p thunk #f name (thread-state new) #f '() #f)))
+	   (p thunk #f name (thread-state new) #f '() #f (make-%mutex) (make-%condition-variable))))
        (case-lambda
-	[() (p #f (%current-thread) 'primordial (thread-state runnable) #f '() #f)]
+	[() (p #f (%current-thread) 'primordial (thread-state runnable) #f '() #f (make-%mutex) (make-%condition-variable))]
 	[(thunk) (make-thread thunk #f)]
 	[(thunk name) (make-thread thunk name)] ))))
 
@@ -1243,7 +1246,8 @@
       (unless (symbol=? (thread-current-state thread)
 			(thread-state new))
 	(error who "thread already started" thread))
-      (let ([mtx (make-%mutex)]
+      (let ([mtx (thread-%mutex thread)]
+	    [cv (thread-%condition-variable thread)]
 	    [thunk (thread-thunk thread)]
 	    [env (make-dynamic-environment
 		  (current-metacontinuation)
@@ -1257,26 +1261,30 @@
 		    (%call-with-current-continuation
 		     (lambda (terminate!)
 		       (%mutex-lock! mtx)
+		       (%condition-variable-broadcast! cv)
 		       (%mutex-unlock! mtx)
 		       (%current-dynamic-environment env)
 		       (call-with-parameterization parameterization
 			 (lambda ()
 			   (with-exception-handler
 			    (lambda (con)
-			      (thread-current-state-set! thread (thread-state terminated))
-			      (thread-end-exception-set! thread (make-uncaught-exception con))
+			      (%mutex-lock! mtx)
+			      (unless (symbol=? (thread-current-state thread) (thread-state terminated))
+				(thread-end-exception-set! thread (make-uncaught-exception con)))
 			      (terminate!))
 			    (lambda ()
 			      (call-with-continuation-prompt
 			       (lambda ()
 				 (call-with-values thunk
 				   (lambda val*
-				     (thread-end-result-set! thread val*)))))))))))
-		    (thread-current-state-set! thread (thread-state terminated))))])
+				     (unless (symbol=? (thread-current-state thread) (thread-state terminated))
+				       (thread-end-result-set! thread val*))))))))))))
+		    (thread-current-state-set! thread (thread-state terminated))
+		    (%mutex-unlock! mtx)))])
 	  (thread-thunk-set! thread #f)
 	  (thread-%thread-set! thread t)
 	  (thread-current-state-set! thread (thread-state runnable))
-	  (%mutex-unlock! mtx)
+	  (%mutex-unlock! mtx cv)
 	  thread))))
 
   (define thread-yield!
@@ -1287,21 +1295,47 @@
     (lambda (thread)
       (unless (thread? thread)
 	(assertion-violation who "not a thread" thread))
-      ;; FIXME
-      (assert #f)))
+      ;; We have to start a helper thread to be able to do some
+      ;; clean-up as we may terminate the current thread.
+      (%thread-join!
+       (%thread-start!
+	(lambda ()
+	  (let ([mtx (thread-%mutex thread)]
+		[cv (thread-%condition-variable thread)])
+	    (%mutex-lock! mtx)
+	    (let ([s (thread-current-state thread)])
+	      (unless (symbol=? s (thread-state terminated))
+		 (thread-current-state-set! thread (thread-state terminated))
+		 (thread-end-exception-set! thread (make-terminated-thread-exception))
+		 (if (symbol=? s (thread-state new))
+		     (%condition-variable-broadcast! cv)
+		     (%thread-terminate! (thread-%thread thread))))
+	      (%mutex-unlock! mtx))))))))
 
   (define/who thread-join!
     (lambda (thread)
       (unless (thread? thread)
 	(assertion-violation who "not a thread" thread))
-      ;; FIXME
-      (assert #f)))
+      (let ([mtx (thread-%mutex thread)]
+	    [cv (thread-%condition-variable thread)])
+	(%mutex-lock! mtx)
+	(let f ()
+	  (when (symbol=? (thread-current-state thread) (thread-state new))
+	    (%mutex-unlock! mtx cv)
+	    (%mutex-lock! mtx)
+	    (f)))
+	(%mutex-unlock! mtx)
+	(%thread-join! (thread-%thread thread))
+	(if (thread-end-exception thread)
+	    (raise (thread-end-exception thread))
+	    (apply values (thread-end-result thread))))))
 
   (define-condition-type &uncaught-exception &error
     make-uncaught-exception uncaught-exception?
     (reason uncaught-exception-reason))
 
-  )
+  (define-condition-type &terminated-thread-exception &error
+    make-terminated-thread-exception terminated-thread-exception?))
 
 ;; Local Variables:
 ;; mode: scheme

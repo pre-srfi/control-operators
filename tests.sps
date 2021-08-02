@@ -277,6 +277,47 @@
 	      (lambda ()
 		(tail?))))))
 
+;;; Threads
+
+(test 98 (let ([t (thread-start!
+		   (make-thread
+		    (lambda ()
+		      98)))])
+	   (thread-join! t)))
+
+(test 96 (let ([t (thread-start!
+		   (make-thread
+		    (lambda ()
+		      (raise 97))))])
+	   (guard (c
+		   [(uncaught-exception? c)
+		    (fx+ -1 (uncaught-exception-reason c))])
+	     (thread-join! t))))
+
+(test 10 (let ([p (make-parameter 9)])
+	   (parameterize ([p 10])
+	     (let ([t (thread-start!
+		       (make-thread
+			(lambda ()
+			  (p))))])
+	       (thread-join! t)))))
+
+(test #t (let* ([signal? #f]
+		[t (thread-start!
+		    (make-thread
+		     (lambda ()
+		       (set! signal? #t)
+		       (do () (#f)
+			 (thread-yield!)))))])
+	   (do () (signal?)
+	     (display "Wait...")
+	     (thread-yield!))
+	   (thread-terminate! t)
+	   (guard (c
+		   [(terminated-thread-exception? c)])
+	     (thread-join! t)
+	     #f)))
+
 ;;; Test End
 
 (test-end)

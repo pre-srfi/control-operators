@@ -67,6 +67,20 @@
 	       (%mutex-unlock! mtx cv)
 	       (eq? x 41))))))
 
+(assert (%run
+	 (lambda ()
+	   (let* ([signal? #f]
+		  [t (%thread-start!
+		      (lambda ()
+			(set! signal? #t)
+			(do () (#f)
+			  (%thread-yield!))))])
+	     (do () (signal?)
+	       (%thread-yield!))
+	     (%thread-terminate! t)
+	     (%thread-join! t)
+	     #t))))
+
 
 ;; Local Variables:
 ;; mode: scheme
