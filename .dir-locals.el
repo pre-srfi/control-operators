@@ -34,7 +34,7 @@
 	  (put 'with-syntax 'scheme-indent-function 1)
           (font-lock-add-keywords
            nil
-           '(("(\\(define/who\\|define-record-type\\|define-syntax/who\\)\\>[ \t]*(*\\(\\sw+\\)?"
+           '(("(\\(define/who\\|define-record-type\\|define-syntax/who\\|define-condition-type\\)\\>[ \t]*(*\\(\\sw+\\)?"
               (1 font-lock-keyword-face)
               (2 font-lock-function-name-face nil t))
 	     ("(\\(%case-lambda-box\\)\\>" 1 font-lock-keyword-face)

@@ -1335,7 +1335,13 @@
     (reason uncaught-exception-reason))
 
   (define-condition-type &terminated-thread-exception &error
-    make-terminated-thread-exception terminated-thread-exception?))
+    make-terminated-thread-exception terminated-thread-exception?)
+
+  ;; Promises
+
+  ;; TBD
+
+  )
 
 ;; Local Variables:
 ;; mode: scheme

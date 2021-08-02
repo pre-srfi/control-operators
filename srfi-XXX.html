@@ -176,6 +176,8 @@
       <dd>continuation mark set or <code>#f</code></dd>
       <dt><code><var>parameterization</var></code></dt>
       <dd>parameterization</dd>
+      <dt><code><var>promise</var></code></dt>
+      <dd>promise</dd>
       <dt><code><var>handler</var></code></dt>
       <dd>procedure or <code>#f</code></dd>
       <dt><code><var>k</var></code></dt>
@@ -462,7 +464,8 @@
       </dd>
       <dt class="procedure"><code>(parameterization? <var>obj</var>)</code></dt>
       <dd>
-	<p>TBD</p>
+	<p>Returns <code>#t</code> if <code><var>obj</var></code> is a
+	parameterization, and <code>#f</code> otherwise.</p>
       </dd>
       <dt class="procedure"><code>(call-with-parameterization <var>parameterization</var> <var>thunk</var>)</code></dt>
       <dd>
@@ -475,7 +478,31 @@
 
     <h3>Promises</h3>
 
-    <p>TBD</p>
+    <dl class="entries">
+      <dt class="syntax"><code>(delay <span class="token">body</span>)</code></dt>
+      <dd>
+	<p><i>Syntax:</i>
+	  TBD</p>
+	<p><i>Semantics:</i>
+	  TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(make-promise <var>obj</var> &hellip;)</code></dt>
+      <dd>
+	<p>TBD</p>
+      </dd>
+
+      <dt class="procedure"><code>(promise? <var>obj</var>)</code></dt>
+      <dd>
+	<p>Returns <code>#t</code> if <code><var>obj</var></code> is a
+	promise, and <code>#f</code> otherwise.</p>
+      </dd>
+
+      <dt class="procedure"><code>(force <var>promise</var>)</code></dt>
+      <dd>
+	<p>TBD</p>
+      </dd>
+    </dl>
 
     <h2 id="implementation">Implementation</h2>
 
