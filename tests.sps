@@ -26,6 +26,7 @@
 		call-with-current-continuation
 		call/cc
 		dynamic-wind
+		with-exception-handler
 		guard
 		current-input-port
 		current-output-port
@@ -247,6 +248,23 @@
 	  (lambda (tail?)
 	    (parameterize ([param 13])
 	      (tail?)))))
+
+;;; Exception handlers
+
+(test 45 (with-exception-handler
+	     (lambda (con)
+	       (abort-current-continuation (default-continuation-prompt-tag)
+		 (lambda () con)))
+	   (lambda ()
+	     (raise 45))))
+
+(test #t (call-with-tail-test
+	  (lambda (tail?)
+	    (with-exception-handler
+		(lambda (con)
+		  #f)
+	      (lambda ()
+		(tail?))))))
 
 ;;; Test End
 
