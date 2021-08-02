@@ -249,6 +249,17 @@
 	    (parameterize ([param 13])
 	      (tail?)))))
 
+(test #t (parameterization? (current-parameterization)))
+
+(test '(196 144)
+      (let ([ps
+	     (parameterize ([param 14]) (current-parameterization))])
+	(list
+	 (call-with-parameterization ps
+	   (lambda ()
+	     (param)))
+	 (param))))
+
 ;;; Exception handlers
 
 (test 45 (with-exception-handler

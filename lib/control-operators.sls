@@ -39,6 +39,7 @@
 	  continuation-prompt-tag
 	  current-exception-handler with-exception-handler guard else =>
 	  make-parameter parameterize
+	  parameterization? current-parameterization call-with-parameterization
 	  current-input-port current-output-port current-error-port
 	  with-input-from-file with-output-to-file
 	  read-char peek-char read
@@ -972,13 +973,17 @@
 
   (define current-parameterization
     (lambda ()
-      (marks-ref (current-marks) (parameterization-continuation-mark-key))
-      #;
-      (continuation-mark-set-first
-       #f
-       (parameterization-continuation-mark-key)
-       #f
-       (root-continuation-prompt-tag))))
+      (marks-ref (current-marks) (parameterization-continuation-mark-key))))
+
+  (define/who call-with-parameterization
+    (lambda (parameterization thunk)
+      (unless (parameterization? parameterization)
+	(assertion-violation who "not a paramerization" parameterization))
+      (unless (procedure? thunk)
+	(assertion-violation who "not a procedure" thunk))
+      (with-continuation-mark (parameterization-continuation-mark-key)
+	  parameterization
+	(thunk))))
 
   (define-record-type parameter-info
     (nongenerative) (sealed #t) (opaque #t)
