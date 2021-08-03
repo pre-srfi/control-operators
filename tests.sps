@@ -35,6 +35,7 @@
 		with-output-to-file
 		read-char
 		peek-char
+		raise raise-continuable
 		read
 		write-char
 		newline
@@ -276,6 +277,20 @@
 		  #f)
 	      (lambda ()
 		(tail?))))))
+
+(test "ok" (guard (c
+		   [(non-continuable-violation? c) "ok"])
+	     (with-exception-handler
+	      (lambda (c)
+		#f)
+	      (lambda ()
+		(raise 42)))))
+
+(test 992 (with-exception-handler
+	   (lambda (con)
+	     (fx+ 1 con))
+	   (lambda ()
+	     (raise-continuable 991))))
 
 ;;; Threads
 

@@ -37,6 +37,7 @@
 	  condition-prompt-tag
 	  &continuation make-continuation-error continuation-error?
 	  continuation-prompt-tag
+	  raise raise-continuable
 	  current-exception-handler with-exception-handler guard else =>
 	  make-parameter parameterize
 	  parameterization? current-parameterization call-with-parameterization
@@ -58,6 +59,7 @@
 			  dynamic-wind
 			  guard)
 		  (with-exception-handler rnrs:with-exception-handler)
+		  (raise-continuable rnrs:raise-continuable)
 		  (current-input-port rnrs:current-input-port)
 		  (current-output-port rnrs:current-output-port)
 		  (current-error-port rnrs:current-error-port)
@@ -209,9 +211,11 @@
   ;; Marks
 
   (define make-marks
-    (lambda (parameterization)
-      (list (cons (parameterization-continuation-mark-key) parameterization))))
+    (lambda (parameterization handler-stack)
+      (list (cons (parameterization-continuation-mark-key) parameterization)
+	    (cons (handler-stack-continuation-mark-key) handler-stack))))
 
+  #;
   (define marks
     (lambda (key val)
       (list (cons key val))))
@@ -254,7 +258,8 @@
 
   (define clear-marks!
     (lambda ()
-      (current-marks (make-marks (current-parameterization)))))
+      (current-marks (make-marks (current-parameterization)
+				 (current-handler-stack)))))
 
   (define set-mark!
     (lambda (key val)
@@ -410,13 +415,13 @@
       (%continuation=? k (empty-continuation))))
 
   (define make-initial-metacontinuation
-    (lambda (k parameterization)
+    (lambda (k parameterization handler-stack)
       (list
        (make-metacontinuation-frame
 	(default-continuation-prompt-tag)
 	k
 	(make-default-handler (default-continuation-prompt-tag))
-	(make-marks parameterization)
+	(make-marks parameterization handler-stack)
 	#f))))
 
   (define run
@@ -426,16 +431,21 @@
 	 (%call-with-current-continuation
 	  (lambda (k)
 	    (let ([parameterization (make-parameterization)]
+		  [handler-stack (list (lambda (con)
+					      (%call-in-continuation
+					       k (lambda ()
+						   (rnrs:raise-continuable con)))))]
 		  [thread (make-thread)])
 	      (%current-dynamic-environment
 	       (make-dynamic-environment
-		(make-initial-metacontinuation k parameterization)
-		(make-marks parameterization)
+		(make-initial-metacontinuation k parameterization handler-stack)
+		(make-marks parameterization handler-stack)
 		'()
 		thread)))
 	    (rnrs:with-exception-handler
 	     (lambda (con)
-	       ((current-exception-handler) con))
+	       (abort
+		(lambda () (%raise con))))
 	     (lambda ()
 	       (call-with-values
 		   (lambda ()
@@ -446,6 +456,25 @@
 		 (lambda val*
 		   (let ([mf (pop-metacontinuation-frame!)])
 		     (apply (metacontinuation-frame-continuation mf) val*))))))))))))
+
+  (define %raise
+    (lambda (con)
+      (let f ([con con])
+	(let ([handler (current-exception-handler)])
+	  (with-continuation-mark (handler-stack-continuation-mark-key)
+	      (cdr (current-handler-stack))
+	    (begin
+	      (handler con)
+	      (f (make-non-continuable-violation))))))))
+
+  (define raise-continuable
+    (lambda (con)
+      (let ([handler (current-exception-handler)])
+	(with-continuation-mark (handler-stack-continuation-mark-key)
+	    (cdr (current-handler-stack))
+	  (handler con)))))
+
+  ;; TODO: Raise-continuable.
 
   (define call-in-empty-continuation
     (lambda (thunk)
@@ -1137,17 +1166,18 @@
 
   ;; Exceptions
 
+  (define handler-stack-continuation-mark-key
+    (let ([mark-key (make-continuation-mark-key 'exception-handler)])
+      (lambda ()
+	mark-key)))
+
+  (define current-handler-stack
+    (lambda ()
+      (marks-ref (current-marks) (handler-stack-continuation-mark-key))))
+
   (define current-exception-handler
     (lambda ()
-      (%current-exception-handler)))
-
-  (define %current-exception-handler
-    (make-parameter
-     (lambda (con)
-       (raise con))
-     (lambda (handler)
-       (assert (procedure? handler))
-       handler)))
+      (car (current-handler-stack))))
 
   (define/who with-exception-handler
     (lambda (handler thunk)
@@ -1155,7 +1185,8 @@
 	(assertion-violation who "not a procedure" handler))
       (unless (procedure? thunk)
 	(assertion-violation who "not a procedure" thunk))
-      (parameterize ([%current-exception-handler handler])
+      (with-continuation-mark (handler-stack-continuation-mark-key)
+	  (cons handler (current-handler-stack))
 	(thunk))))
 
   (define-syntax/who guard
@@ -1348,16 +1379,16 @@
     (fields (mutable content promise-ref promise-set!))
     (protocol
      (lambda (p)
-       (lambda (done? thunk)
-	 (p (make-promise-content done? thunk))))))
+       (lambda (done? proc)
+	 (p (make-promise-content done? proc))))))
 
   (define-record-type promise-content
     (nongenerative) (sealed #t) (opaque #t)
-    (fields (mutable done?) (mutable thunk)))
+    (fields (mutable done?) (mutable proc)))
 
-  (define promise-thunk
+  (define promise-proc
     (lambda (p)
-      (promise-content-thunk (promise-ref p))))
+      (promise-content-proc (promise-ref p))))
 
   (define promise-done?
     (lambda (p)
@@ -1367,9 +1398,9 @@
     (lambda (p done?)
       (promise-content-done?-set! (promise-ref p) done?)))
 
-  (define promise-thunk-set!
-    (lambda (p thunk)
-      (promise-content-thunk-set! (promise-ref p) thunk)))
+  (define promise-proc-set!
+    (lambda (p proc)
+      (promise-content-proc-set! (promise-ref p) proc)))
 
   (define-syntax/who delay
     (lambda (stx)
@@ -1378,7 +1409,7 @@
 	 #'(let ([ps (current-parameterization)])
 	     (%make-promise
 	      #f
-	      (lambda ()
+	      (lambda (succ fail)
 		(call-with-parameterization ps
 		  (lambda () e1 e2 ...)))))]
 	[_
@@ -1397,7 +1428,7 @@
 	(assertion-violation who "not a promise" p))
       (let f ()
 	(if (promise-done? p)
-	    ((promise-thunk p))
+	    ((promise-proc p))
 	    (call-with-immediate-continuation-mark (force-continuation-mark-key)
 	      (lambda (c)
 		(if c
@@ -1408,19 +1439,19 @@
 			    (with-continuation-mark (force-continuation-mark-key)
 				(lambda (p)
 				  (set! q p))
-			      ((promise-thunk p))))
+			      ((promise-proc p) values values)))
 			(lambda val*
 			  (cond
 			   [(promise-done? p)
-			    ((promise-thunk p))]
+			    ((promise-proc p))]
 			   [q
 			    (promise-done?-set! p (promise-done? q))
-			    (promise-thunk-set! p (promise-thunk q))
+			    (promise-proc-set! p (promise-proc q))
 			    (promise-set! q (promise-ref p))
 			    (f)]
 			   [else
 			    (promise-done?-set! p #t)
-			    (promise-thunk-set! p (lambda () (apply values val*)))
+			    (promise-proc-set! p (lambda () (apply values val*)))
 			    (apply values val*)]))))))))))))
 
 ;; Local Variables:
