@@ -362,6 +362,34 @@
 	  (parameterize ([p 2])
 	    (force s))))
 
+(test 10 (let ([p (delay (raise 10))])
+	   (guard (c [else c])
+	     (force p))))
+
+(test '(0 10 1 10 1)
+      (let* ([l '()]
+	     [x 0]
+	     [p (delay (set! x (fx+ x 1))
+		       (raise 10))])
+	(define out!
+	  (lambda (x)
+	    (set! l (cons x l))))
+	(define get
+	  (lambda ()
+	    (reverse l)))
+	(out! x)
+	(out!
+	 (guard (c [else c])
+	   (force p)
+	   3))
+	(out! x)
+	(out!
+	 (guard (c [else c])
+	   (force p)
+	   4))
+	(out! x)
+	(get)))
+
 ;;; Test End
 
 (test-end)

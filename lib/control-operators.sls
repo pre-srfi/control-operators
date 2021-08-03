@@ -1420,7 +1420,6 @@
       (%make-promise #t (lambda () (apply values obj*)))))
 
   ;; TODO: Thread-safety.
-  ;; TODO: Exception handling.
   ;; TODO: Enable continuation barrier and, possibly, default prompt.
   (define/who force
     (lambda (p)
@@ -1434,25 +1433,34 @@
 		(if c
 		    (c p)
 		    (let ([q #f])
-		      (call-with-values
-			  (lambda ()
-			    (with-continuation-mark (force-continuation-mark-key)
-				(lambda (p)
-				  (set! q p))
-			      ((promise-proc p) values values)))
-			(lambda val*
-			  (cond
-			   [(promise-done? p)
-			    ((promise-proc p))]
-			   [q
-			    (promise-done?-set! p (promise-done? q))
-			    (promise-proc-set! p (promise-proc q))
-			    (promise-set! q (promise-ref p))
-			    (f)]
-			   [else
-			    (promise-done?-set! p #t)
-			    (promise-proc-set! p (lambda () (apply values val*)))
-			    (apply values val*)]))))))))))))
+		      (let ([thunk
+			     (guard (exc [else (lambda () (raise exc))])
+			       (thunkify
+				(with-continuation-mark (force-continuation-mark-key)
+				    (lambda (p)
+				      (set! q p))
+				  ((promise-proc p) values values))))])
+			(cond
+			 [(promise-done? p)
+			  ((promise-proc p))]
+			 [q
+			  (promise-done?-set! p (promise-done? q))
+			  (promise-proc-set! p (promise-proc q))
+			  (promise-set! q (promise-ref p))
+			  (f)]
+			 [else
+			  (promise-done?-set! p #t)
+			  (promise-proc-set! p thunk)
+			  (thunk)]))))))))))
+
+  ;; Helpers
+
+  (define-syntax thunkify
+    (syntax-rules ()
+      [(thunkify expr)
+       (let-values ([val* expr])
+	 (lambda () (apply values val*)))]))
+  )
 
 ;; Local Variables:
 ;; mode: scheme
