@@ -1200,10 +1200,8 @@
 					 #'(if e0
 					       (begin e1 e2 ...)
 					       rest)]))]))))))))
-		(lambda ()
-		  (call-with-values
-		      (lambda () e1 e2 ...)
-		    guard-k)))))]
+		  (lambda ()
+		    e1 e2 ...))))]
 	[_
 	 (syntax-violation who "invalid syntax" stx)])))
 
@@ -1374,7 +1372,11 @@
     (lambda (stx)
       (syntax-case stx ()
 	[(_ e1 e2 ...)
-	 #'(%make-promise (lambda () e1 e2 ...))]
+	 #'(let ([ps (current-parameterization)])	   
+	     (%make-promise
+	      (lambda ()
+		(call-with-parameterization ps
+		  (lambda () e1 e2 ...)))))]
 	[_
 	 (syntax-violation who "invalid syntax" stx)])))
 
@@ -1384,7 +1386,7 @@
 
   ;; TODO: Thread-safety.
   ;; TODO: Exception handling.
-  ;; TODO: Record parameterization and enable continuation barrier and, possibly, default prompt.
+  ;; TODO: Enable continuation barrier and, possibly, default prompt.
   (define/who force
     (lambda (p)
       (unless (promise? p)

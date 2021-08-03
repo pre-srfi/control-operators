@@ -342,6 +342,11 @@
 	    (force r)
 	    x)))
 
+(test 1 (let* [(p (make-parameter 1))
+	       (s (delay (p)))]
+	  (parameterize ([p 2])
+	    (force s))))
+
 ;;; Test End
 
 (test-end)
