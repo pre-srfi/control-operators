@@ -1345,35 +1345,39 @@
 
   (define-record-type (promise %make-promise promise?)
     (nongenerative) (sealed #t) (opaque #t)
-    (fields (mutable content))
+    (fields (mutable content promise-ref promise-set!))
     (protocol
      (lambda (p)
-       (lambda (values-or-thunk)
-	 (p (list values-or-thunk))))))
+       (lambda (done? thunk)
+	 (p (make-promise-content done? thunk))))))
 
-  (define promise-values-or-thunk
+  (define-record-type promise-content
+    (nongenerative) (sealed #t) (opaque #t)
+    (fields (mutable done?) (mutable thunk)))
+
+  (define promise-thunk
     (lambda (p)
-      (car (promise-content p))))
-
-  (define promise-values-or-thunk-set!
-    (lambda (p obj)
-      (set-car! (promise-content p) obj)))
+      (promise-content-thunk (promise-ref p))))
 
   (define promise-done?
     (lambda (p)
-      (assert (promise? p))
-      (not (procedure? (promise-values-or-thunk p)))))
+      (promise-content-done? (promise-ref p))))
 
-  (define promise-values
-    (lambda (p)
-      (apply values (promise-values-or-thunk p))))
+  (define promise-done?-set!
+    (lambda (p done?)
+      (promise-content-done?-set! (promise-ref p) done?)))
+
+  (define promise-thunk-set!
+    (lambda (p thunk)
+      (promise-content-thunk-set! (promise-ref p) thunk)))
 
   (define-syntax/who delay
     (lambda (stx)
       (syntax-case stx ()
 	[(_ e1 e2 ...)
-	 #'(let ([ps (current-parameterization)])	   
+	 #'(let ([ps (current-parameterization)])
 	     (%make-promise
+	      #f
 	      (lambda ()
 		(call-with-parameterization ps
 		  (lambda () e1 e2 ...)))))]
@@ -1382,7 +1386,7 @@
 
   (define make-promise
     (lambda obj*
-      (%make-promise obj*)))
+      (%make-promise #t (lambda () (apply values obj*)))))
 
   ;; TODO: Thread-safety.
   ;; TODO: Exception handling.
@@ -1393,7 +1397,7 @@
 	(assertion-violation who "not a promise" p))
       (let f ()
 	(if (promise-done? p)
-	    (promise-values p)
+	    ((promise-thunk p))
 	    (call-with-immediate-continuation-mark (force-continuation-mark-key)
 	      (lambda (c)
 		(if c
@@ -1404,17 +1408,19 @@
 			    (with-continuation-mark (force-continuation-mark-key)
 				(lambda (p)
 				  (set! q p))
-			      ((promise-values-or-thunk p))))
+			      ((promise-thunk p))))
 			(lambda val*
 			  (cond
 			   [(promise-done? p)
-			    (promise-values p)]
+			    ((promise-thunk p))]
 			   [q
-			    (promise-values-or-thunk-set! p (promise-values-or-thunk q))
-			    (promise-content-set! q (promise-content p))
+			    (promise-done?-set! p (promise-done? q))
+			    (promise-thunk-set! p (promise-thunk q))
+			    (promise-set! q (promise-ref p))
 			    (f)]
 			   [else
-			    (promise-values-or-thunk-set! p val*)
+			    (promise-done?-set! p #t)
+			    (promise-thunk-set! p (lambda () (apply values val*)))
 			    (apply values val*)]))))))))))))
 
 ;; Local Variables:
