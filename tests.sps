@@ -318,6 +318,30 @@
 	     (thread-join! t)
 	     #f)))
 
+;;; Promises
+
+(test 213 (force (delay 213)))
+
+(test (values 3 4) (force (delay (values 3 4))))
+
+(test 214 (force (make-promise 214)))
+
+(test 100 (force (delay (force (delay 100)))))
+
+(test 1 (let* ([x 0]
+	       [s (delay (set! x (fx+ x 1)))])
+	  (force s)
+	  (force s)
+	  x))
+
+(test 1 (let ([x 0])
+	  (letrec ([r (delay (set! x (fx+ x 1)))]
+		   [s (delay (force r))]
+		   [t (delay (force s))])
+	    (force t)
+	    (force r)
+	    x)))
+
 ;;; Test End
 
 (test-end)

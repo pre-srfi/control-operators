@@ -49,6 +49,7 @@
 	  thread-terminate! thread-join!
 	  uncaught-exception? uncaught-exception-reason
 	  terminated-thread-exception?
+	  delay make-promise promise? force
 	  run
 	  (rename (call-with-current-continuation call/cc)))
   (import (rename (except (rnrs (6))
@@ -1339,9 +1340,80 @@
 
   ;; Promises
 
-  ;; TBD
+  (define force-continuation-mark-key
+    (let ([mark-key (make-continuation-mark-key 'force)])
+      (lambda ()
+	mark-key)))
 
-  )
+  (define-record-type (promise %make-promise promise?)
+    (nongenerative) (sealed #t) (opaque #t)
+    (fields (mutable content))
+    (protocol
+     (lambda (p)
+       (lambda (values-or-thunk)
+	 (p (list values-or-thunk))))))
+
+  (define promise-values-or-thunk
+    (lambda (p)
+      (car (promise-content p))))
+
+  (define promise-values-or-thunk-set!
+    (lambda (p obj)
+      (set-car! (promise-content p) obj)))
+
+  (define promise-done?
+    (lambda (p)
+      (assert (promise? p))
+      (not (procedure? (promise-values-or-thunk p)))))
+
+  (define promise-values
+    (lambda (p)
+      (apply values (promise-values-or-thunk p))))
+
+  (define-syntax/who delay
+    (lambda (stx)
+      (syntax-case stx ()
+	[(_ e1 e2 ...)
+	 #'(%make-promise (lambda () e1 e2 ...))]
+	[_
+	 (syntax-violation who "invalid syntax" stx)])))
+
+  (define make-promise
+    (lambda obj*
+      (%make-promise obj*)))
+
+  ;; TODO: Thread-safety.
+  ;; TODO: Exception handling.
+  ;; TODO: Record parameterization and enable continuation barrier and, possibly, default prompt.
+  (define/who force
+    (lambda (p)
+      (unless (promise? p)
+	(assertion-violation who "not a promise" p))
+      (let f ()
+	(if (promise-done? p)
+	    (promise-values p)
+	    (call-with-immediate-continuation-mark (force-continuation-mark-key)
+	      (lambda (c)
+		(if c
+		    (c p)
+		    (let ([q #f])
+		      (call-with-values
+			  (lambda ()
+			    (with-continuation-mark (force-continuation-mark-key)
+				(lambda (p)
+				  (set! q p))
+			      ((promise-values-or-thunk p))))
+			(lambda val*
+			  (cond
+			   [(promise-done? p)
+			    (promise-values p)]
+			   [q
+			    (promise-values-or-thunk-set! p (promise-values-or-thunk q))
+			    (promise-content-set! q (promise-content p))
+			    (f)]
+			   [else
+			    (promise-values-or-thunk-set! p val*)
+			    (apply values val*)]))))))))))))
 
 ;; Local Variables:
 ;; mode: scheme
