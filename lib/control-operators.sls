@@ -215,11 +215,6 @@
       (list (cons (parameterization-continuation-mark-key) parameterization)
 	    (cons (handler-stack-continuation-mark-key) handler-stack))))
 
-  #;
-  (define marks
-    (lambda (key val)
-      (list (cons key val))))
-
   (define marks-ref
     (case-lambda
       [(marks key)
@@ -342,12 +337,12 @@
   (define pop-metacontinuation-frame!
     (lambda ()
       (let ([mk (current-metacontinuation)])
-	(assert (pair? mk))
-	(let ([mf (car mk)])
-	  (current-metacontinuation (cdr mk))
-	  (current-marks (metacontinuation-frame-marks mf))
-	  (current-winders (metacontinuation-frame-winders mf))
-	  mf))))
+	(and (pair? mk)
+	     (let ([mf (car mk)])
+	       (current-metacontinuation (cdr mk))
+	       (current-marks (metacontinuation-frame-marks mf))
+	       (current-winders (metacontinuation-frame-winders mf))
+	       mf)))))
 
   (define append-metacontinuation!
     (lambda (mk)
@@ -424,39 +419,78 @@
 	(make-marks parameterization handler-stack)
 	#f))))
 
+  (define make-initial-dynamic-environment
+    (lambda (k parameterization handler thread)
+      (let ([handler-stack (list handler)])
+	(make-dynamic-environment
+	 (make-initial-metacontinuation k parameterization
+					handler-stack)
+	 (make-marks parameterization (list
+				       (lambda (exc)
+					 (abort-current-continuation (default-continuation-prompt-tag)
+					   (lambda ()
+					     (raise exc))))))
+	 '()
+	 thread))))
+
   (define run
     (lambda (thunk)
       (%run
        (lambda ()
-	 (%call-with-current-continuation
-	  (lambda (k)
-	    (let ([parameterization (make-parameterization)]
-		  [handler-stack (list (lambda (con)
-					      (%call-in-continuation
-					       k (lambda ()
-						   (rnrs:raise-continuable con)))))]
-		  [thread (make-thread)])
-	      (%current-dynamic-environment
-	       (make-dynamic-environment
-		(make-initial-metacontinuation k parameterization handler-stack)
-		(make-marks parameterization handler-stack)
-		'()
-		thread)))
-	    (rnrs:with-exception-handler
-	     (lambda (con)
-	       (abort
-		(lambda () (%raise con))))
-	     (lambda ()
-	       (call-with-values
-		   (lambda ()
-		     (%call-with-current-continuation
-		      (lambda (k)
-			(empty-continuation k)
-			(abort thunk))))
-		 (lambda val*
-		   (let ([mf (pop-metacontinuation-frame!)])
-		     (apply (metacontinuation-frame-continuation mf) val*))))))))))))
+	 (let ([thread (make-primordial-thread)])
+	   (rnrs:with-exception-handler
+	    (lambda (con)
+	      (abort (lambda () (%raise con))))
+	    (lambda ()
+	      (trampoline
+	       (make-thread-thunk thread (make-parameterization) thunk))))
+	   (if (thread-end-exception thread)
+	       (raise (thread-end-exception thread))
+	       (apply values (thread-end-result thread))))))))
 
+  (define trampoline
+    (lambda (thunk)
+      (call-with-values
+	  (lambda ()
+	    (%call-with-current-continuation
+	     (lambda (null-k)
+	       (empty-continuation null-k)
+	       (abort thunk))))
+	(lambda val*
+	  (cond
+	   [(pop-metacontinuation-frame!)
+	    => (lambda (mf)
+		 (apply (metacontinuation-frame-continuation mf) val*))]
+	   [else
+	    (apply values val*)])))))
+
+  (define success-handler
+    (lambda val*
+      (let* ([thread (current-thread)]
+	     [mtx (thread-%mutex thread)]
+	     [end-k (thread-end-continuation thread)])
+	(%mutex-lock! mtx)
+	(%call-in-continuation
+	 end-k
+	 (lambda ()
+	   (unless (symbol=? (thread-current-state thread) (thread-state terminated))
+	     (thread-end-result-set! thread val*)))))))
+
+  (define failure-handler
+    (lambda (con)
+      (let* ([thread (current-thread)]
+	     [mtx (thread-%mutex thread)]
+	     [end-k (thread-end-continuation thread)])
+	(%mutex-lock! mtx)
+	(%call-in-continuation
+	 end-k
+	 (lambda ()
+	   (unless (symbol=? (thread-current-state thread) (thread-state terminated))
+	     (thread-end-exception-set! thread (make-uncaught-exception con))))))))
+
+  ;; XXX: SRFI 18 says that the handler should be called tail-called
+  ;; by (some) primitives.  This doesn't make much sense with the
+  ;; R[67]RS semantics.
   (define %raise
     (lambda (con)
       (let f ([con con])
@@ -467,14 +501,13 @@
 	      (handler con)
 	      (f (make-non-continuable-violation))))))))
 
+  ;; Raise-continuable calls the installed handler in tail context.
   (define raise-continuable
     (lambda (con)
       (let ([handler (current-exception-handler)])
 	(with-continuation-mark (handler-stack-continuation-mark-key)
 	    (cdr (current-handler-stack))
 	  (handler con)))))
-
-  ;; TODO: Raise-continuable.
 
   (define call-in-empty-continuation
     (lambda (thunk)
@@ -1099,6 +1132,10 @@
 	 (assertion-violation who "not a textual output port" port))
        port)))
 
+  ;; We have to redefine all R6RS procedures that implicitly use the
+  ;; current input/output/error port.  All these procedures are in
+  ;; (rnrs io simple (6)).
+
   (define with-input-from-file
     (lambda (filename thunk)
       (rnrs:with-input-from-file
@@ -1246,9 +1283,10 @@
     (lambda ()
       (dynamic-environment-thread (%current-dynamic-environment))))
 
-  (define-record-type thread
+  (define-record-type (thread %make-thread thread?)
     (nongenerative) (sealed #t) (opaque #t)
     (fields (mutable thunk)
+	    (mutable end-continuation)
 	    (mutable %thread)
 	    name
 	    (mutable current-state)
@@ -1256,18 +1294,46 @@
 	    (mutable end-result)
 	    (mutable end-exception)
 	    (mutable %mutex)
-	    (mutable %condition-variable))
-    (protocol
-     (lambda (p)
-       (define/who make-thread
-	 (lambda (thunk name)
-	   (unless (procedure? thunk)
-	     (assertion-violation who "not a procedure" thunk))
-	   (p thunk #f name (thread-state new) #f '() #f (make-%mutex) (make-%condition-variable))))
-       (case-lambda
-	[() (p #f (%current-thread) 'primordial (thread-state runnable) #f '() #f (make-%mutex) (make-%condition-variable))]
-	[(thunk) (make-thread thunk #f)]
-	[(thunk name) (make-thread thunk name)] ))))
+	    (mutable %condition-variable)))
+
+  (define make-thread-thunk
+    (lambda (thread ps thunk)
+      (lambda ()
+	(let ([mtx (thread-%mutex thread)]
+	      [cv (thread-%condition-variable thread)])
+	  (%call-with-current-continuation
+	   (lambda (end-k)
+	     (%mutex-lock! mtx)
+	     (thread-end-continuation-set! thread end-k)
+	     (%condition-variable-broadcast! cv)
+	     (%mutex-unlock! mtx)
+	     (call-with-values
+		 (lambda ()
+		   (%call-with-current-continuation
+		    (lambda (k)
+		      (%current-dynamic-environment
+		       (make-initial-dynamic-environment
+			k ps failure-handler thread))
+		      (abort thunk))))
+	       success-handler)))
+	  (assert (eqv? (current-thread) thread))
+	  (thread-current-state-set! thread (thread-state terminated))
+	  (%mutex-unlock! mtx)))))
+
+  (define/who make-thread
+    (case-lambda
+     [(thunk) (make-thread thunk #f)]
+     [(thunk name)
+      (unless (procedure? thunk)
+	(assertion-violation who "not a procedure" thunk))
+      (let ([thread
+	     (%make-thread #f #f #f name (thread-state new) #f '() #f (make-%mutex) (make-%condition-variable))])
+	(thread-thunk-set! thread (make-thread-thunk thread (current-parameterization) thunk))
+	thread)]))
+
+  (define make-primordial-thread
+    (lambda ()
+      (%make-thread #f #f (%current-thread) 'primordial (thread-state runnable) #f '() #f (make-%mutex) (make-%condition-variable))))
 
   (define/who thread-start!
     (lambda (thread)
@@ -1277,40 +1343,9 @@
 			(thread-state new))
 	(error who "thread already started" thread))
       (let ([mtx (thread-%mutex thread)]
-	    [cv (thread-%condition-variable thread)]
-	    [thunk (thread-thunk thread)]
-	    [env (make-dynamic-environment
-		  (current-metacontinuation)
-		  (current-marks)
-		  (current-winders)
-		  thread)]
-	    [parameterization (current-parameterization)])
+	    [cv (thread-%condition-variable thread)])
 	(%mutex-lock! mtx)
-	(let ([t (%thread-start!
-		  (lambda ()
-		    (%call-with-current-continuation
-		     (lambda (terminate!)
-		       (%mutex-lock! mtx)
-		       (%condition-variable-broadcast! cv)
-		       (%mutex-unlock! mtx)
-		       (%current-dynamic-environment env)
-		       (call-with-parameterization parameterization
-			 (lambda ()
-			   (with-exception-handler
-			    (lambda (con)
-			      (%mutex-lock! mtx)
-			      (unless (symbol=? (thread-current-state thread) (thread-state terminated))
-				(thread-end-exception-set! thread (make-uncaught-exception con)))
-			      (terminate!))
-			    (lambda ()
-			      (call-with-continuation-prompt
-			       (lambda ()
-				 (call-with-values thunk
-				   (lambda val*
-				     (unless (symbol=? (thread-current-state thread) (thread-state terminated))
-				       (thread-end-result-set! thread val*))))))))))))
-		    (thread-current-state-set! thread (thread-state terminated))
-		    (%mutex-unlock! mtx)))])
+	(let ([t (%thread-start! (thread-thunk thread))])
 	  (thread-thunk-set! thread #f)
 	  (thread-%thread-set! thread t)
 	  (thread-current-state-set! thread (thread-state runnable))
@@ -1379,16 +1414,16 @@
     (fields (mutable content promise-ref promise-set!))
     (protocol
      (lambda (p)
-       (lambda (done? proc)
-	 (p (make-promise-content done? proc))))))
+       (lambda (done? thunk)
+	 (p (make-promise-content done? thunk))))))
 
   (define-record-type promise-content
     (nongenerative) (sealed #t) (opaque #t)
-    (fields (mutable done?) (mutable proc)))
+    (fields (mutable done?) (mutable thunk)))
 
-  (define promise-proc
+  (define promise-thunk
     (lambda (p)
-      (promise-content-proc (promise-ref p))))
+      (promise-content-thunk (promise-ref p))))
 
   (define promise-done?
     (lambda (p)
@@ -1398,9 +1433,9 @@
     (lambda (p done?)
       (promise-content-done?-set! (promise-ref p) done?)))
 
-  (define promise-proc-set!
-    (lambda (p proc)
-      (promise-content-proc-set! (promise-ref p) proc)))
+  (define promise-thunk-set!
+    (lambda (p thunk)
+      (promise-content-thunk-set! (promise-ref p) thunk)))
 
   (define-syntax/who delay
     (lambda (stx)
@@ -1409,7 +1444,7 @@
 	 #'(let ([ps (current-parameterization)])
 	     (%make-promise
 	      #f
-	      (lambda (succ fail)
+	      (lambda ()
 		(call-with-parameterization ps
 		  (lambda () e1 e2 ...)))))]
 	[_
@@ -1419,39 +1454,59 @@
     (lambda obj*
       (%make-promise #t (lambda () (apply values obj*)))))
 
+  (define call-in-delimited-continuation
+    (lambda (thunk)
+      (let* ([saved-env (%current-dynamic-environment)])
+	(let ([thunk
+	       (%call-with-current-continuation
+		(lambda (end-k)
+		  (thunkify
+		   (%call-with-current-continuation
+		    (lambda (k)
+		      (%current-dynamic-environment
+		       (make-initial-dynamic-environment
+			k (current-parameterization)
+			(lambda (con)
+			  (end-k (lambda ()
+				   (raise (make-uncaught-exception con)))))
+			(current-thread)))
+		      (abort thunk))))))])
+	  (%current-dynamic-environment saved-env)
+	  (thunk)))))
+
   ;; TODO: Thread-safety.
-  ;; TODO: Enable continuation barrier and, possibly, default prompt.
   (define/who force
     (lambda (p)
       (unless (promise? p)
 	(assertion-violation who "not a promise" p))
       (let f ()
 	(if (promise-done? p)
-	    ((promise-proc p))
+	    ((promise-thunk p))
 	    (call-with-immediate-continuation-mark (force-continuation-mark-key)
 	      (lambda (c)
 		(if c
 		    (c p)
-		    (let ([q #f])
-		      (let ([thunk
-			     (guard (exc [else (lambda () (raise exc))])
-			       (thunkify
-				(with-continuation-mark (force-continuation-mark-key)
-				    (lambda (p)
-				      (set! q p))
-				  ((promise-proc p) values values))))])
-			(cond
-			 [(promise-done? p)
-			  ((promise-proc p))]
-			 [q
-			  (promise-done?-set! p (promise-done? q))
-			  (promise-proc-set! p (promise-proc q))
-			  (promise-set! q (promise-ref p))
-			  (f)]
-			 [else
-			  (promise-done?-set! p #t)
-			  (promise-proc-set! p thunk)
-			  (thunk)]))))))))))
+		    (let* ([q #f]
+			   [thunk
+			    (guard (exc [else (lambda () (raise exc))])
+			      (thunkify
+			       (call-in-delimited-continuation
+				(lambda ()
+				  (with-continuation-mark (force-continuation-mark-key)
+				      (lambda (p) (set! q p))
+				    ((promise-thunk p)))))))])
+		      (cond
+		       [(promise-done? p)
+			((promise-thunk p))]
+		       [q
+			(promise-done?-set! p (promise-done? q))
+			(promise-thunk-set! p (promise-thunk q))
+			(promise-set! q (promise-ref p))
+			(f)]
+		       [else
+			(promise-done?-set! p #t)
+			(promise-thunk-set! p thunk)
+			(thunk)])))))))))
 
   ;; Helpers
 

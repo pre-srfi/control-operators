@@ -22,7 +22,7 @@
 ;; CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ;; SOFTWARE.
 
-(library (control-operators schedule)
+(library (control-operators timer)
   (export %call-with-interrupt-handler %set-timer!)
   (import (rnrs (6))
 	  (only (chezscheme) parameterize timer-interrupt-handler set-timer))
@@ -30,7 +30,10 @@
   (define %call-with-interrupt-handler
     (lambda (handler thunk)
       (parameterize ([timer-interrupt-handler handler])
-	(thunk))))
+	(dynamic-wind
+	    (lambda () (%set-timer! #t))
+	    thunk
+	    (lambda () (%set-timer! #f))))))
 
   (define %set-timer!
     (lambda (on?)

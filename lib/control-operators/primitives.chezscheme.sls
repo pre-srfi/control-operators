@@ -63,7 +63,7 @@
 
   (define %call-in-continuation
     (lambda (k thunk)
-      ((continuation k) thunk))))
+      ((assert (continuation k)) thunk))))
 
 ;; Local Variables:
 ;; mode: scheme

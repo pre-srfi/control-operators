@@ -31,7 +31,7 @@
 	  %run)
   (import (rnrs (6))
 	  (control-operators primitives)
-	  (control-operators schedule))
+	  (control-operators timer))
 
   (define *exit-continuation*)
   (define *current-thread*)
@@ -152,27 +152,22 @@
 
   (define %run
     (lambda (thunk)
-      (%call-with-interrupt-handler
-       interrupt-handler
-       (lambda ()
-	 (lock!)
-	 (%set-timer! #t)
-	 (let-values
-	     ([val*
-	       (%call-with-current-continuation
-		(lambda (k)
+      (lock!)
+      (let-values
+	  ([val*
+	    (%call-with-current-continuation
+	     (lambda (k)
+	       (%call-with-interrupt-handler
+		interrupt-handler
+		(lambda ()
 		  (set! *exit-continuation* k)
 		  (set! *current-thread* (make-%primordial-thread))
 		  (current-threads
 		   (list *current-thread*))
 		  (unlock!)
-		  (let-values ([val* (thunk)])
-		    (lock!)
-		    (apply values val*))))])
-	   (%set-timer! #f)
-	   (current-threads '())
-	   (unlock!)
-	   (apply values val*))))))
+		  (thunk)))))])
+	(current-threads '())
+	(apply values val*))))
 
   (define %thread-start!
     (lambda (thunk)

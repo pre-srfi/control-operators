@@ -41,6 +41,7 @@
 		newline
 		display
 		write)
+	(prefix (rnrs (6)) rnrs:)
 	(control-operators)
 	(control-operators testing))
 
@@ -111,6 +112,14 @@
 	       (lambda (thunk)
 		 (thunk)))))
 
+(test 2112
+      (guard (c [else c])
+	(call-with-continuation-prompt
+	 (lambda ()
+	   (raise 2112)))))
+
+;;; Current Continuation
+
 (test 12 (+ 2 (call-with-current-continuation
 		(lambda (k)
 		  (+ 1 (k 10))))))
@@ -135,6 +144,14 @@
 
 (test #t (continuation-prompt-available? (default-continuation-prompt-tag)))
 
+(test 111 (call-with-current-continuation
+	   (lambda (k)
+	     (call-with-continuation-prompt
+	      (lambda ()
+		(k 111))))))
+
+;;; Continuation barriers
+
 (test 103 (call-with-continuation-barrier
 	   (lambda ()
 	     (call/cc
@@ -146,6 +163,16 @@
 	     (call-with-continuation-barrier
 	      (lambda ()
 		(+ 100 (k 104)))))))
+
+(test 112 (call-with-current-continuation
+	   (lambda (k)
+	     (call-with-continuation-barrier
+	      (lambda ()
+		(call-with-continuation-prompt
+		 (lambda ()
+		   (k 112))))))))
+
+;;; Continuation marks
 
 (test 'mark1 (with-continuation-mark 'key 'mark1
 		(call-with-immediate-continuation-mark 'key values)))
@@ -333,6 +360,25 @@
 	     (thread-join! t)
 	     #f)))
 
+(test 734 (let* ([p (make-parameter 734)]
+		 [t (make-thread
+		     (lambda ()
+		       (p)))])
+	    (parameterize ([p 735])
+	      (thread-join! (thread-start! t)))))
+
+(test '(12 13) (let* ([k #f]
+		      [t (thread-start!
+			  (make-thread
+			   (lambda ()
+			     (call-with-current-continuation
+			      (lambda (c)
+				(set! k c)
+				12)))))]
+		      [x (thread-join! t)])
+		 (k (list x 13))
+		 14))
+
 ;;; Promises
 
 (test 213 (force (delay 213)))
@@ -362,10 +408,6 @@
 	  (parameterize ([p 2])
 	    (force s))))
 
-(test 10 (let ([p (delay (raise 10))])
-	   (guard (c [else c])
-	     (force p))))
-
 (test '(0 10 1 10 1)
       (let* ([l '()]
 	     [x 0]
@@ -379,16 +421,22 @@
 	    (reverse l)))
 	(out! x)
 	(out!
-	 (guard (c [else c])
+	 (guard (c [(uncaught-exception? c)
+		    (uncaught-exception-reason c)])
 	   (force p)
 	   3))
 	(out! x)
 	(out!
-	 (guard (c [else c])
+	 (guard (c [(uncaught-exception? c)
+		    (uncaught-exception-reason c)])
 	   (force p)
 	   4))
 	(out! x)
 	(get)))
+
+(test 1000 (force (delay (abort-current-continuation (default-continuation-prompt-tag)
+			   (lambda ()
+			     1000)))))
 
 ;;; Test End
 

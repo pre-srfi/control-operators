@@ -31,6 +31,7 @@
           (put 'call-with-parameterization 'scheme-indent-function 1)
 	  (put 'abort-current-continuation 'scheme-indent-function 1)
 	  (put 'meta-continuation-case 'scheme-indent-function 1)
+	  (put 'rec 'scheme-indent-function 1)
 	  (put 'with-syntax 'scheme-indent-function 1)
           (font-lock-add-keywords
            nil
@@ -43,4 +44,5 @@
 	     ("(\\(with-continuation-mark\\)\\>" 1 font-lock-keyword-face)
              ("(\\(call-with-immediate-continuation-mark\\)\\>" 1 font-lock-keyword-face)
 	     ("(\\(with-syntax\\)\\>" 1 font-lock-keyword-face)
+	     ("(\\(rec\\)\\>" 1 font-lock-keyword-face)
 	     )))))))
