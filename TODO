@@ -4,5 +4,4 @@
 * Revise SRFI 18 condition names to make them more in line with R6RS?
 * Document call-in-delimited-continuation.
 * Add information about the initial error handlers in threads and how they abort.
-* Add tests for https://srfi-email.schemers.org/srfi-39/msg/2784435/.
 * Mention http://www.cs.utah.edu/~mflatt/tmp/paper.pdf.

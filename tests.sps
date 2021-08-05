@@ -438,6 +438,49 @@
 			   (lambda ()
 			     1000)))))
 
+;;; See: <https://srfi-email.schemers.org/srfi-39/msg/2784435/>.
+(test '(once #f 1)
+      (let ([l '()])
+	(define out!
+	  (lambda (x)
+	    (set! l (cons x l))))
+	(define get
+	  (lambda ()
+	    (reverse l)))
+	(let* ([x (delay (call-with-current-continuation (lambda (k) (k 1))))]
+	       [_ (out! 'once)]
+	       [y (force x)])
+	  (out! (integer? x))
+	  (out! y))
+	(get)))
+
+;;; See: <https://srfi-email.schemers.org/srfi-39/msg/2784435/>.
+(test '(1 2 3)
+      (let* ()
+	(define (foreach->lazy-list foreach-fn collection)
+	  (delay
+	    (call-with-current-continuation
+	     (lambda (k-main)
+	       (foreach-fn
+		(lambda (val)
+		  (call-with-current-continuation
+		   (lambda (k-reenter)
+		     (k-main (cons val
+				   (delay
+				     (call-with-current-continuation
+				      (lambda (k-new-main)
+					(set! k-main k-new-main)
+					(k-reenter #f)))))))))
+		collection)
+	       (k-main '())))))
+	(define lazy-list->list
+	  (lambda (lazy-list)
+	    (let ([ls (force lazy-list)])
+	      (if (pair? ls)
+		  (cons (car ls) (lazy-list->list (cdr ls)))
+		  '()))))
+	(lazy-list->list (foreach->lazy-list for-each '(1 2 3)))))
+
 ;;; Test End
 
 (test-end)
