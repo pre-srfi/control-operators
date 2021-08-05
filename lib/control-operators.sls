@@ -490,7 +490,8 @@
 
   ;; XXX: SRFI 18 says that the handler should be called tail-called
   ;; by (some) primitives.  This doesn't make much sense with the
-  ;; R[67]RS semantics.
+  ;; R[67]RS semantics.  In fact, SRFI 18's `raise' seems to be
+  ;; R[67]RS's `raise-continuable'.
   (define %raise
     (lambda (con)
       (let f ([con con])
@@ -1411,11 +1412,13 @@
 
   (define-record-type (promise %make-promise promise?)
     (nongenerative) (sealed #t) (opaque #t)
-    (fields (mutable content promise-ref promise-set!))
+    (fields (mutable content promise-ref promise-set!)
+	    %mutex)
     (protocol
      (lambda (p)
        (lambda (done? thunk)
-	 (p (make-promise-content done? thunk))))))
+	 (p (make-promise-content done? thunk)
+	    (make-%mutex))))))
 
   (define-record-type promise-content
     (nongenerative) (sealed #t) (opaque #t)
@@ -1436,6 +1439,14 @@
   (define promise-thunk-set!
     (lambda (p thunk)
       (promise-content-thunk-set! (promise-ref p) thunk)))
+
+  (define promise-lock!
+    (lambda (p)
+      (%mutex-lock! (promise-%mutex p))))
+
+  (define promise-unlock!
+    (lambda (p)
+      (%mutex-unlock! (promise-%mutex p))))
 
   (define-syntax/who delay
     (lambda (stx)
@@ -1474,7 +1485,6 @@
 	  (%current-dynamic-environment saved-env)
 	  (thunk)))))
 
-  ;; TODO: Thread-safety.
   (define/who force
     (lambda (p)
       (unless (promise? p)
@@ -1495,17 +1505,21 @@
 				  (with-continuation-mark (force-continuation-mark-key)
 				      (lambda (p) (set! q p))
 				    ((promise-thunk p)))))))])
+		      (promise-lock! p)
 		      (cond
 		       [(promise-done? p)
+			(promise-unlock! p)
 			((promise-thunk p))]
 		       [q
 			(promise-done?-set! p (promise-done? q))
 			(promise-thunk-set! p (promise-thunk q))
 			(promise-set! q (promise-ref p))
+			(promise-unlock! p)
 			(f)]
 		       [else
 			(promise-done?-set! p #t)
 			(promise-thunk-set! p thunk)
+			(promise-unlock! p)
 			(thunk)])))))))))
 
   ;; Helpers

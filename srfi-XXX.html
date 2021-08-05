@@ -184,10 +184,19 @@
       <dd>undelimited continuation</dd>
     </dl>
 
+    <h3>Iterators</h3>
+
+    <p>An <dfn>iterator</dfn> for a list in the sense of this
+      specification is a zero-argument procedure that returns two
+      values on each invocation.  An iterator for the empty list
+      returns <code>#f</code> and an iterator for the empty list.  An
+      iterator for a non empty list returns the head of the list and
+      an iterator for its tail.</p>
+
     <h3>Conditions</h3>
 
     <dl class="entries">
-      <dt class="condition-type"><code>&continuation</code></dt>
+      <dt class="condition-type"><code>&amp;continuation</code></dt>
       <dt class="procedure"><code>(make-continuation-condition <var>obj</var></code>)</dt>
       <dt class="procedure"><code>(continuation-condition? <var>obj</var></code>)</dt>
       <dt class="procedure"><code>(continuation-prompt-tag <var>condition</var></code>)</dt>
@@ -195,9 +204,9 @@
 	<p>
 	  This condition type could be defined by
 	</p>
-	<pre>(define-condition-type &continuation &error
-  make-continuation-condition continuation-condition?
-  (prompt-tag continuation-prompt-tag))</pre>
+	<pre>(define-condition-type &amp;continuation &amp;error
+	  make-continuation-condition continuation-condition?
+	  (prompt-tag continuation-prompt-tag))</pre>
 	<p>
 	  This condition type describes errors that occurred during
 	  non-local control
@@ -206,66 +215,10 @@
       </dd>
     </dl>
 
-    <h3>Continuation Prompts</h3>
+    <h3>Prompt Tags</h3>
 
     <p>Continuation prompts are tagged with <dfn>prompt tags</dfn>,
       which are opaque values.</p>
-
-    <dl class="entries">
-      <dt><code>(call-with-continuation-prompt <var>thunk</var>)</code></dt>
-      <dt><code>(call-with-continuation-prompt <var>thunk</var> <var>prompt-tag</var>)</code></dt>
-      <dt><code>(call-with-continuation-prompt <var>thunk</var> <var>prompt-tag</var> <var>handler</var>)</code></dt>
-      <dd>
-	<p>If not supplied, <code><var>prompt-tag</var></code>
-	  defaults to the value returned
-	  by <code>default-continuation-prompt-tag</code>,
-	  and <code><var>handler</var></code> defaults
-	  to <code>#f</code>.</p>
-
-	<p>
-	  The <code>call-with-continuation-prompt</code> procedure
-	  calls <code><var>thunk</var></code> without arguments,
-	  returning the results of this call.
-	  Moreover, <code>call-with-continuation-prompt</code> tags
-	  the dynamic extent of the call
-	  to <code><var>thunk</var></code>
-	  with <code><var>prompt-tag</var></code> and
-	  records <code><var>handler</var></code> with the prompt
-	  if <code><var>handler</var></code> is not <code>#f</code>,
-	  and with a default handler otherwise.
-	</p>
-
-	<p>The default handler is a procedure that takes a single
-	  argument <code><var>thunk</var></code>.  When the default
-	  handler is called, it calls <code><var>thunk</var></code>
-	  without arguments, returning the results of this code.
-	  Moreover, the default handler tags the dynamic extent of the
-	  call to <code><var>thunk</var></code>
-	  with <code><var>prompt-tag</var></code> and records itself
-	  with the prompt.</p>
-
-	<p>The calls to <code><var>thunk</var></code> are never in tail
-	context.</p>
-      </dd>
-
-      <dt><code>(abort-current-continuation <var>prompt-tag</var> <var>obj<var>
-      &hellip;)</code></dt>
-      <dd>
-	<p>The <code>abort-current-continuation</code> procedure
-	  aborts all active procedure calls in the current
-	  continuation until a procedure call whose dynamic extent is
-	  tagged with <code><var>prompt-tag</var></code> is aborted
-	  and replaces them with a call to the handler recorded with
-	  the prompt tag with the arguments <code><var>obj</var></code>s.</p>
-	<p>
-	  When no procedure call whose dynamic extent is tagged
-	  with <code><var>prompt-tag</var></code> is active in the current
-	  continuation, an exception with condition
-	  type <code>&continuation</code> is raised.</p>
-      </dd>
-    </dl>
-
-    <h3>Prompt Tags</h3>
 
     <dl class="entries">
       <dt class="procedure"><code>(make-continuation-prompt-tag)</code></dt>
@@ -290,13 +243,83 @@
       <dt class="procedure"><code>(continuation-prompt-tag? <var>obj</var>)</code></dt>
       <dd>
 	<p>Returns <code>#t</code> if <code><var>obj</var></code> is a
-	  prompt tag, and <code>#f</code> otherwise.</p/
+	  prompt tag, and <code>#f</code> otherwise.</p>
+      </dd>
+    </dl>
+
+    <h3>Continuation Prompts</h3>
+
+    <p>A <dfn>continuation prompt</dfn> is an active procedure call
+      that is tagged with a prompt tag and which records a <dfn>prompt
+      handler</dfn>, which is a procedure.</p>
+
+    <p>A continuation prompt with a given prompt tag
+      is <dfn>available</dfn> in a continuation if a procedure call
+      tagged with the prompt tag is active in
+      the continuation.</p>
+
+    <dl class="entries">
+      <dt><code>(call-with-continuation-prompt <var>thunk</var>)</code></dt>
+      <dt><code>(call-with-continuation-prompt <var>thunk</var> <var>prompt-tag</var>)</code></dt>
+      <dt><code>(call-with-continuation-prompt <var>thunk</var> <var>prompt-tag</var> <var>handler</var>)</code></dt>
+      <dd>
+	<p>If not supplied, <code><var>prompt-tag</var></code>
+	  defaults to the value returned
+	  by <code>default-continuation-prompt-tag</code>,
+	  and <code><var>handler</var></code> defaults
+	  to <code>#f</code>.</p>
+
+	<p>The <code>call-with-continuation-prompt</code> procedure
+	  instates an active procedure call that just delivers its
+	  arguments to its continuation and that is tagged
+	  with <code><var>prompt-tag</var></code> and
+	  records <code><var>handler</var></code> with the prompt
+	  if <code><var>handler</var></code> is not <code>#f</code>,
+	  and with a default handler otherwise, in the current
+	  continuation.  Finally, <code><var>thunk</var></code> is
+	  called with no arguments in the resulting continuation.</p>
+
+	<p>The default handler is a procedure that takes a single
+	  argument <code><var>thunk</var></code>.  When the default
+	  handler is called, it reinstates the continuation prompt and
+	  calls <code><var>thunk</var></code> with no arguments in the
+	  resulting continuation.</p>
+
+	<p>The calls to the <code><var>thunk</var></code>s are never in tail
+	context.</p>
+      </dd>
+
+      <dt><code>(abort-current-continuation <var>prompt-tag</var> <var>obj<var>
+      &hellip;)</code></dt>
+      <dd>
+	<p>The <code>abort-current-continuation</code> procedure
+	  aborts all active procedure calls in the current
+	  continuation until a procedure call tagged
+	  with <code><var>prompt-tag</var></code> is aborted and
+	  replaces them with a call to the handler recorded with the
+	  prompt tag with the
+	  arguments <code><var>obj</var></code>s.</p>
+	<p>
+	  When a continuation prompt tagged
+	  with <code><var>prompt-tag</var></code> is not available in
+	  the continuation processed
+	  by <code>abort-current-continuation</code>, an exception
+	  with condition type <code>&amp;continuation</code> is
+	  raised.</p>
+	<p><i>Note:</i> Even if a continuation prompt tagged
+	  with <code><var>prompt-tag</var></code> is available in the
+	  current continuation
+	  when <code>abort-current-continuation</code> is called, due
+	  to the presence of <code>dynamic-wind</code> winders (see
+	  below) is can still happen during the aborting process that
+	  it becomes no longer available.
+	</p>
       </dd>
     </dl>
 
     <h3>Continuations</h3>
 
-    <p>Each <dfn>continuation</dfn> is a procedure.</p>
+    <p>Each <dfn>continuation (procedure)</dfn> is a procedure.</p>
 
     <dl class="entries">
       <dt class="procedure"><code>(call-with-current-continuation <var>proc</var>)</code></dt>
@@ -306,8 +329,45 @@
       <dd>
 	<p>If not supplied, <code><var>prompt-tag</var></code> defaults to the value returned
 	  by <code>default-continuation-prompt-tag</code>.</p>
-	<p>TBD</p>
+	<p>It is an error if <code><var>proc</var></code> does not accept one argument.</p>
+	<p>The procedure <code>call-with-current-continuation</code>
+	  packages all active procedure calls in the current
+	  continuation up to but not including a procedure call tagged
+	  with <code><var>prompt-tag</var></code> as a continuation
+	  (“escape”) procedure and passes it as an argument
+	  to <code><var>proc</var></code>.  The continuation procedure is a
+	  Scheme procedure that, if it is later called, aborts all
+	  active procedure calls in the then current continuation up
+	  to but not including a procedure call tagged
+	  with <code><var>prompt-tag</var></code> or up to but not
+	  including a procedure call shared by the current and
+	  captured continuations, whichever comes first.  Finally, the
+	  active procedure calls in the unshared portion of the
+	  captured continuation are reinstated and the arguments
+	  supplied to the call to the continuation procedure become the
+	  result values for the new current continuation.
+	</p>
+	<p>We say that the continuation procedure
+	is <dfn>delimited</dfn> by <code><var>prompt-tag</var></code>.</p>
+	<p>If a call to <code>call-with-current-continuation</code>
+	occurs in a tail context, the call
+	to <code><var>proc</var></code> is also in a tail context.</p>
+	<p>If a continuation prompt tagged
+	  with <code><var>prompt-tag</var></code> is not available in
+	  the current continuation, an exception with condition
+	  type <code>&amp;continuation</code> is raised.
+	<p>If a continuation prompt tagged
+	  with <code><var>prompt-tag</var></code> is not available in
+	  the current continuation when the continuation procedure is called, an exception with condition
+	  type <code>&amp;continuation</code> is raised.</p>
 	<p>The identifier <code>call/cc</code> is an alias for <code>call-with-current-continuation</code>.</p>
+	<p><i>Note:</i> As a continuation prompt tagged with the
+	  default prompt tag is available in the initial continuation
+	  of each thread, including the primordial thread,
+	  the <code>call-with-current-procedure</code> defined here is
+	  a conservative extension of
+	  the <code>call-with-current-procedure</code> of earlier
+	  Scheme reports.</p>
       </dd>
 
       <dt class="procedure"><code>(call-with-composable-continuation <var>proc</var>)</code></dt>
@@ -315,54 +375,182 @@
       <dd>
 	<p>If not supplied, <code><var>prompt-tag</var></code> defaults to the value returned
 	  by <code>default-continuation-prompt-tag</code>.</p>
-	<p>TBD</p>
+	<p>It is an error if <code><var>proc</var></code> does not accept one argument.</p>
+	<p>The procedure <code>call-with-composable-continuation</code>
+	  packages all active procedure calls in the current
+	  continuation up to but not including a procedure call tagged
+	  with <code><var>prompt-tag</var></code> as a continuation
+	  (“escape”) procedure and passes it as an argument
+	  to <code><var>proc</var></code>.  The continuation procedure is a
+	  Scheme procedure that, if it is later called, the
+	  active procedure calls in the
+	  captured continuation are reinstated and the arguments
+	  supplied to the call to the continuation procedure become the
+	  result values for the new current continuation.
+	</p>
+	<p>We say that the continuation procedure
+	is <dfn>delimited</dfn> by <code><var>prompt-tag</var></code>.</p>
+	<p>If a call to <code>call-with-current-continuation</code>
+	occurs in a tail context, the call
+	to <code><var>proc</var></code> is also in a tail context.</p>
+	<p>If a continuation prompt tagged
+	  with <code><var>prompt-tag</var></code> is not available in
+	  the current continuation, an exception with condition
+	  type <code>&amp;continuation</code> is raised.</p>
+	<p><i>Note:</i> The difference between the continuation
+	  procedure returned
+	  by <code>call-with-current-continuation</code>
+	  and <code>call-with-composable-continuation</code> is that
+	  the former removes portions of the then current
+	  continuation, while the latter does not.  The former
+	  continuation procedures are called <dfn>non-composable
+	  continuations</dfn>, while the latter are
+	  called <dfn>composable continuations</dfn>.  The latter
+	  usually return values to the continuation in which they are
+	  called, while the former never do.</p>
       </dd>
 
       <dt class="procedure"><code>(continuation? <var>obj</var>)</code></dt>
       <dd>
 	<p>Returns <code>#t</code> if <code><var>obj</var></code> is a
-	  continuation, and <code>#f</code> otherwise.</p>
+	  continuation procedure, and <code>#f</code> otherwise.</p>
       </dd>
 
       <dt class="procedure"><code>(call-in-continuation <var>cont</var> <var>thunk</var>)</code></dt>
       <dd>
-	<p>TBD</p>
+	<p>
+	  Aborts and reinstates active procedure calls as if the
+	  continuation procedure <code><var>cont</var></code> were
+	  applied, but instead of delivering values to then current
+	  continuation, the procedure <code><var>thunk</var></code> is
+	  called with no arguments in this continuation.</p>
       </dd>
 
       <dt class="procedure"><code>(call-with-continuation-barrier <var>thunk</var>)</code></dt>
       <dd>
-	<p>TBD</p>
+	<p>The <code>call-with-continuation-prompt</code> procedure
+	  instates an active procedure call that just delivers its
+	  arguments to its continuation and that is marked as
+	  a <dfn>continuation barrier</dfn>.  Finally, <code><var>thunk</var></code> is
+	  called with no arguments in the resulting continuation.</p>
+	<p>When applying a non-composable continuation would reinstate
+	  a continuation barrier, an exception with condition
+	  type <code>&amp;continuation</code> is raised.</p>
+	<p>If a continuation barrier is captured during a call
+	to <code>call-with-composable-continuation</code>, an
+	exception with condition type <code>&amp;continuation</code> is
+	  raised.</p>
+	<p>This extends the semantics
+	  of <code>call-with-current-continuation</code>
+	  and <code>call-with-composable-continuation</code>.</p>
+	<p>The calls to the <code><var>thunk</var></code>s are never in tail
+	  context.</p>
+	<p><i>Note:</i> As calling a composable continuation never
+	  aborts active procedure calls, a continuation barrier would
+	  be reinstated if and only if the captured continuation
+	  included a continuation barrier.</p>
       </dd>
 
       <dt class="procedure"><code>(continuation-prompt-available? <var>prompt-tag</var>)</code></dt>
       <dt class="procedure"><code>(continuation-prompt-available? <var>prompt-tag</var> <var>cont</var>)</code></dt>
       <dd>
-	<p>TBD</p>
+	<p>The first form is operationally equivalent to
+	  <code>(continuation-prompt-available? <var>prompt-tag</var> (call/cc values))</code>.</p>
+	<p>Returns <code>#t</code> if a continuation prompt tagged
+	  with <code><var>prompt-tag</var></code> is available in the
+	  continuation packaged in <code><var>cont</var></code> or
+	  if <code><var>cont</var></code> is a non-composable
+	  continuation delimited
+	  by <code><var>prompt-tag</var></code>, and <code>#f</code>
+	  otherwise.</p>
       </dd>
 
       <dt class="procedure"><code>(dynamic-wind <var>pre-thunk</var> <var>thunk</var> <var>post-thunk</var>)</code></dt>
       <dd>
-	<p>TBD</p>
+	<p>The <code>dynamic-wind</code> procedure
+	  calls <code><var>pre-thunk</var></code> with no arguments in
+	  a continuation that calls <code><var>thunk</var></code> with
+	  no arguments in a continuation that
+	  calls <code><var>post-thunk</var></code> in a continuation
+	  with no arguments that finally delivers the results of the
+	  call to <code><var>thunk</var></code> to the continuation of
+	  the call to <code>dynamic-wind</code>.</p>
+	<p>Moreover, when the active call
+	  to <code><var>thunk</var></code> is aborted (either due to a
+	  prompt abort or a continuation procedure
+	  invocation), <code><var>post-thunk</var></code> is called
+	  with no arguments, and when the active call
+	  to <code><var>thunk</var></code> is reinstated (due to a
+	  continuation procedure
+	  invocation), <code><var>pre-thunk</var></code> is called
+	    with no arguments.</p>
+	<p>Each call to <code><var>pre-thunk<var></code>
+	  and <code><var>post-thunk</var></code> belongs to the dynamic
+	  extent of the original call to <code>dynamic-wind</code>.</p>
+	<p><i>Note:</i> When a call
+	  to <code><var>pre-thunk</var></code>
+	  or <code><var>post-thunk</var></code> returns during a
+	  prompt abort or a continuation procedure invocation, the
+	  sequence of active procedure calls that still have to be
+	  aborted and the sequence of active procedure calls that
+	  still have to be reinstated may have changed due to the
+	  application of composable continuations captured
+	  in <code><var>pre-thunk</var></code>
+	  or <code><var>post-thunks</var></code>.
+	<p>This extends the semantics
+	  of <code>abort-current-continuation</code>, <code>call-with-current-continuation</code>,
+	  and <code>call-with-composable-continuation</code>.</p>
+	<p>The calls to the <code><var>thunk</var></code>s are never in tail
+	  context.</p>
       </dd>
     </dl>
 
     <h3>Continuation Marks</h3>
 
+    <p>Active procedure calls can be annotated with <dfn>continuation
+	marks</dfn>.  Each continuation mark maps a key, which can be an
+      arbitrary object, to a value, which can also be an arbitrary
+      object.  If an active procedure call is annotated with a
+      continuation mark for a key for which the active procedure call
+      has already been annotated with a mark, the most recent annotation
+      prevails.</p>
+
     <dl class="entries">
       <dt class="syntax"><code>(with-continuation-mark <span class="token">key-expr</span> <span class="token">val-expr</span> <span class="token">expression</span>)</code></dt>
       <dd>
 	<p><i>Syntax:</i>
-	  TBD</p>
-
+	  <code><span class="token">Key-expr</span></code>, <code><span class="token">val-expr</span></code>,
+	  and <code><span class="token">expression</span></code> must be expressions.</p>
 	<p><i>Semantics:</i>
-	  TBD</p>
+	  <code>Key-expr</code> and <code>val-expr</code> are
+	  evaluated in an unspecified order to obtain a key and a
+	  value, respectively.  The most recent active procedure call
+	  in the continuation of
+	  the <code>with-continuation-mark</code> expression is then
+	  dynamically annotated with a continuation mark mapping the
+	  key to the value, and <code>expression</code> is evaluated
+	  in the continuation of
+	  the <code>with-continuation-mark</code> expression.</p>
+	<p>If a <code>with-continuation-mark</code> expression is in
+	tail context, <code>expression</code> is in tail context as
+	well.
       </dd>
 
+      <dt class="procedure"><code>(call-with-immediate-continuation-mark <var>key</var> <var>proc</var>)</code></dt>
       <dt class="procedure"><code>(call-with-immediate-continuation-mark <var>key</var> <var>proc</var> <var>obj</var>)</code></dt>
       <dd>
 	<p>If not supplied, <code><var>obj</var></code> defaults
 	  to <code>#f</code>.</p>
-	<p>TBD</p>
+	<p>If the most recent active procedure call in the
+	continuation of the call
+	to <code>call-with-immediate-continuation-mark</code> is
+	annotated with a continuation mark mapping <var>key</var> to a
+	value, <var>proc</var> is applied to the value, and
+	to <var>obj</var> otherwise.</p>
+	<p>If a call
+	  to <code>call-with-immediate-continuation-mark</code> occurs
+	  in a tail context, the call to <code><var>proc</var></code>
+	  is also in a tail context.</p>
       </dd>
 
       <dt class="procedure"><code>(continuation-marks <var>cont</var>)</code></dt>
@@ -370,7 +558,16 @@
       <dd>
 	<p>If not supplied, <code><var>prompt-tag</var></code> defaults to the value returned
 	  by <code>default-continuation-prompt-tag</code>.</p>
-	<p>TBD</p>
+	<p>Returns a continuation mark set capturing the continuation
+	  marks of the active procedure calls in the
+	  continuation <code><var>cont</var></code> up to the continuation
+	    prompt <code>prompt-tag</code>.</p>
+	<p>If no continuation prompt tagged
+	  with <code><var>prompt-tag</var></code> is available
+	  in <code><var>cont</var></code>, the
+	  continuation <code><var>cont</var></code> must be delimited
+	  by <code><var>prompt-tag</var></code> or an exception with
+	  condition type <code>&amp;continuation</code> is raised.</p>
       </dd>
 
       <dt class="procedure"><code>(current-continuation-marks)</code></dt>
@@ -378,18 +575,32 @@
       <dd>
 	<p>If not supplied, <code><var>prompt-tag</var></code> defaults to the value returned
 	  by <code>default-continuation-prompt-tag</code>.</p>
-	<p>TBD</p>
+	<p>Operationally equivalent to <code>(continuation-marks
+	(call/cc
+	values <var>prompt-tag</var>) <var>prompt-tag</var>)</code>.</p>
       </dd>
 
       <dt class="procedure"><code>(continuation-mark-set? <var>obj</var>)</code></dt>
       <dd>
-	<p>TBD</p>
+	<p>Returns <code>#t</code> if <code><var>obj</var></code> is a
+	continuation mark set, and <code>#f</code> otherwise.</p>
       </dd>
 
       <dt class="procedure"><code>(continuation-mark-set-&gt;list <var>mark-set</var> <var>key</var>)</code></dt>
       <dt class="procedure"><code>(continuation-mark-set-&gt;list <var>mark-set</var> <var>key</var> <var>prompt-tag</var>)</code></dt>
       <dd>
-	<p>TBD</p>
+	<p>If not supplied, <code><var>prompt-tag</var></code> defaults to the value returned
+	  by <code>default-continuation-prompt-tag</code>.</p>
+	<p>Returns a newly allocated list containing the values of the
+	  continuation marks for <code><var>key</var></code> captured
+	  in <code><var>mark-set</var></code> up to where the
+	  corresponding active procedure calls were separated by a
+	  continuation prompts
+	  tagged <code><var>prompt-tag</var></code>, if at all.  The list
+	  elements correspond to the active procedure calls that
+	  contained a continuation mark
+	  for <code><var>key</var></code> with the most recent active
+	  procedure calls coming first.</p>
       </dd>
 
       <dt class="procedure"><code>(continuation-mark-set-&gt;list* <var>mark-set</var> <var>list</var>)</code></dt>
@@ -397,8 +608,26 @@
       <dt class="procedure"><code>(continuation-mark-set-&gt;list* <var>mark-set</var> <var>list</var> <var>obj</var> <var>prompt-tag</var>)</code></dt>
       <dd>
 	<p>If not supplied, <code><var>obj</var></code> defaults
-	to <code>#f</code>.</p>
-	<p>TBD</p>
+	  to <code>#f</code>.</p>
+	<p>If not supplied, <code><var>prompt-tag</var></code> defaults to the value returned
+	  by <code>default-continuation-prompt-tag</code>.</p>
+	<p>Returns a newly allocated list containing newly allocated
+	  vectors.  The vectors contain the values of the continuation
+	  marks for the keys in <code><var>list</var></code> captured
+	  in <code><var>mark-set</var></code> up to where the
+	  corresponding active procedure calls were separated by a
+	  continuation prompts
+	  tagged <code><var>prompt-tag</var></code>, if at all, as
+	  follows: Each vector contains the continuation marks of a
+	  single active procedure call for the keys contained
+	  in <code><var>list</var></code>.  If such an active
+	  procedure call has no mark for some key
+	  in <code><var>list</var></code>, the
+	  values <code><var>obj</var></code> is used.  The vectors in
+	  the newly allocated list correspond to the active procedure
+	  calls that contain a continuation mark for at least one key
+	  in <code><var>list</var></code> with the most recent active
+	  procedure calls coming first.</p>
       </dd>
 
       <dt class="procedure"><code>(continuation-mark-set-&gt;iterator <var>mark-set</var> <var>list</var>)</code></dt>
@@ -407,7 +636,20 @@
       <dd>
 	<p>If not supplied, <code><var>obj</var></code> defaults
 	to <code>#f</code>.</p>
-	<p>TBD</p>
+	<p>If not supplied, <code><var>prompt-tag</var></code> defaults to the value returned
+	  by <code>default-continuation-prompt-tag</code>.</p>
+	<p>Returns an iterator for the list that would be
+	  constructed by <code>continuation-mark-set-&gt;list</code>
+	  when applied to the same arguments.</p>
+	<p><i>Note:</i> Some recent SRFIs that have been included into
+	  early editions
+	  of <a href="#r7rs"><cite>R<sup>7</sup>RS-large</cite></a> or
+	  are to be included its forthcoming editions feature the use
+	  of generators (see <a href="">SRFI 158</a>) to process lists
+	  (or objects of other sequence types).  As generators are
+	  fundamentally non-pure, we believe that their use should be
+	  limited in otherwise functional code.  The iterator concept
+	  used here, on the other hand, is fully functional.</p>
       </dd>
 
       <dt class="procedure"><code>(continuation-mark-set-first <var>mark-set</var> <var>key</var>)</code></dt>
@@ -416,7 +658,12 @@
       <dd>
 	<p>If not supplied, <code><var>obj</var></code> defaults
 	to <code>#f</code>.</p>
-	<p>TBD</p>
+	<p>If not supplied, <code><var>prompt-tag</var></code> defaults to the value returned
+	  by <code>default-continuation-prompt-tag</code>.</p>
+	<p>Returns the first element for the list that would be
+	  constructed by <code>continuation-mark-set-&gt;list</code>
+	  when applied to the same arguments, or <code>obj</code> if
+	  the result would be the empty list.</p>
       </dd>
     </dl>
 
@@ -478,18 +725,75 @@
 
     <h3>Promises</h3>
 
+    <p><dfn>Promises</dfn> are objects that can be <dfn>forced</dfn>
+      to deliver values or raise exceptions.</p>
+
     <dl class="entries">
       <dt class="syntax"><code>(delay <span class="token">body</span>)</code></dt>
       <dd>
 	<p><i>Syntax:</i>
-	  TBD</p>
-	<p><i>Semantics:</i>
-	  TBD</p>
+	  <code><span class="token">Body</span></code> must be a body.</p>
+	<p><i>Semantics:</i> Evaluates to a promise that behaves as
+	  follows when forced in a continuation: If the promise
+	  already has delivered values, the same values are delivered
+	  again, and if the promise already has raised an exception,
+	  the same exception is raised again in the contination.
+	  Otherwise, <code><span class="token">body</span></code> is
+	  evaluated in a continuation consisting of a single
+	  continuation prompt tagged with the value returned
+	  by <code>(default-continuation-prompt-tag)</code> and with
+	  the default handler.  The parameterization of the initial
+	  continuation is the same as the parameterization of the
+	  continuation of the original <code>delay</code> expression.
+	  Moreover, an initial exception handler is installed in the
+	  initial continuation.
+
+	  When values are delivered to the initial continuation and
+	  the promise still hasn't delivered values or has raised an
+	  exception, the values are delivered to the continuation in
+	  which the promise was forced.  Otherwise, the already
+	  delivered values are delivered again, or the already raised
+	  exception is raised again.
+
+	  When the initial exception handler is invoked on an object
+	  and the promise still hasn't delivered values or has raised
+	  an exception, the object is raised in the continuation in
+	  which the promise was forced.  Otherwiese, the already
+	  delivered values are delivered again, or the already raised
+	  exception is raised again.</p>
+
+	<p>If a call to <code>force</code> occurs in tail context
+	  during the evaluation
+	  of <code><span class="token">body</span></code> it is
+	  effectively a tail call.</p>
+
+	<p>All operations involved in forcing except for the
+	  evaluation of the body are required to be atomic.</p>
+
+	<p><i>Note: </i> The extra requirement about calls
+	  to <code>force</code> in tail contexts makes the
+	  extra <code>delay-force</code> syntax
+	  of <cite>R<sup>7</sup>RS</cite> (see
+	  also <a href="van-tonder"><cite>SRFI 45</cite></a>, where it
+	  is called <code>lazy</code>) unnecessary.</p>
       </dd>
 
       <dt class="procedure"><code>(make-promise <var>obj</var> &hellip;)</code></dt>
       <dd>
-	<p>TBD</p>
+	<p>Returns a promise that, when forced in a continuation,
+	delivers the values <code><var>obj</var></code> &hellip; to the
+	continuation.</p>
+	<p><i>Note:</i>
+	  <cite>R<sup>7</sup>RS</cite> includes the description of a
+	  one-argument procedure also named <code>make-promise</code> that
+	  behaves as the <code>make-promise</code> procedure defined
+	  here when applied to a single non-promise object.  As the
+	  semantics of <code>make-promise</code>
+	  in <cite>R<sup>7</sup>RS</cite> makes it mostly useless and
+	  does not allow the obvious generalization to multiple
+	  values, we have decided to break compatibility for the
+	  better.
+	</p>
       </dd>
 
       <dt class="procedure"><code>(promise? <var>obj</var>)</code></dt>
@@ -500,19 +804,37 @@
 
       <dt class="procedure"><code>(force <var>promise</var>)</code></dt>
       <dd>
-	<p>TBD</p>
+	<p>The <code>force</code> procedure
+	forces <code><var>promise</var></code> in the continuation of
+	the call to <code>force</code>.</p>
       </dd>
     </dl>
 
     <p><i>Note:</i>
-      TBD: Compatibility with R7RS.</p>
+      <cite>R<sup>7</sup>RS</cite> includes the unfortunate
+      requirement that the body of a <code>delay</code> form has to be
+      evaluated in the dynamic environment of the call
+      to <code>force</code>.  This makes the result of forcing a
+      promise dependent on the time when the promise is forced even in
+      purely functional code.  As has already been observed Marc
+      Feeley during the discussion period of <cite>SRFI 39</cite>, the
+      correct semantics would have been to evaluate the body of
+      a <code>delay</code> form in the parameterization of that form.
+      The <code>delay</code> syntax defined in this specification has
+      the correct semantics and is breaking compatibility
+      with <cite>R<sup>7</sup>RS</cite> for what we think is the
+      better.  The semantics defined here also work well in the
+      presence of capturing and applying continuations.  In fact, with
+      regard to the dynamic environment, the semantics of promises are
+      now equivalent to that of threads.</p>
 
     <h2 id="implementation">Implementation</h2>
 
     <h3>Portability</h3>
 
-    <p>Implementing the control operators presented in this SRFI as a
-      portable R6RS or portable R7RS library is not possible.</p>
+    <p>Implementing the control operators presented in this SRFI
+      solely in terms of the facilities provided in <cite>R<sup>6</sup>RS</cite> or
+      <cite>R<sup>7</sup>RS</cite> is not possible.</p>
 
     <h3>Sample Implementation</h3>
 
@@ -596,7 +918,10 @@
 
     <h3>Other Implementations</h3>
 
-    <p>The control operators of this SRFI are natively implemented in Racket.</p>
+    <p>A lot of the control operators of this SRFI are natively
+    implemented in Racket.  A high-performance implementation of
+    continuation marks is described in <a href="#flatt"><cite>Compiler
+    and runtime support for continuation marks</cite></a>.</p>
 
     <h2 id="acknowledgements">Acknowledgements</h2>
 
@@ -622,7 +947,28 @@
 	  17, Issue 6, November 2007,
 	  pp. 687-730. DOI: <a href="https://doi.org/10.1017/S0956796807006259">10.1017/S0956796807006259</a>.</p>
       </li>
-      <li id="racket"><p><a href="https://racket-lang.org/">Racket</a>.</p>
+      <li id="feeley">
+	<p>Marc
+	Feeley: <a href="https://srfi.schemers.org/srfi-39/srfi-39.html"><cite>SRFI
+	39: Parameter objects</cite></a>.</p>
+      </li>
+      <li id="flatt">
+	<p>Matthew Flatt, R. Kent Dybvig: <cite>Compiler and runtime
+	  support for continuation marks</cite>, PLDI 2020:
+	  Proceedings of the 41st ACM SIGPLAN Conference on
+	  Programming Language Design and Implementation, June 2020, pp. 45-58. DOI: <a href="https://doi.org/10.1145/3385412.3385981">
+	    10.1145/3385412.3385981</a>.</p></li>
+      <li id="kawai">
+	<p>Shiro Kawai, John Cowan, Thomas
+	Gilray: <a href="https://srfi.schemers.org/srfi-158/srfi-158.html"><cite>SRFI
+	158: Generators and Accumulators</cite></a>.</p>
+      </li>
+      <li id="r7rs">
+	<p><a href="https://github.com/johnwcowan/r7rs-work/blob/master/R7RSHomePage.md">R7RS Home Page</a>.</p>
+      </li>
+      <li id="racket">
+	<p><a href="https://racket-lang.org/">Racket</a>.</p>
+      </li>
       <li id="shinn">
 	<p>Alex Shinn, John Cowan, Arthur
 	  A. Gleckler: <a href="https://small.r7rs.org/attachment/r7rs.pdf"><cite>Revised<sup>7</sup>
@@ -636,6 +982,11 @@
 	  Volume 19, Supplement S1, August 2009,
 	  pp. 1-301. DOI: <a href="https://doi.org/10.1017/S0956796809990074">10.1017/S0956796809990074</a>.</p>
       </li>
+      <li id="kawai">
+	<p>André van Tonder: <a href="https://srfi.schemers.org/srfi-45/srfi-45.html"><cite>SRFI
+	45: Primitives for Expressing Iterative Lazy Algorithms</cite></a>.</p>
+      </li>
+
     </ol>
 
     <h2 id="copyright">Copyright</h2>

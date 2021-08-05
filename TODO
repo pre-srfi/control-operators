@@ -4,4 +4,5 @@
 * Revise SRFI 18 condition names to make them more in line with R6RS?
 * Document call-in-delimited-continuation.
 * Add information about the initial error handlers in threads and how they abort.
-* Mention http://www.cs.utah.edu/~mflatt/tmp/paper.pdf.
+* Add a thread form, which is basically (make-thread (lambda () <body>)).
+* Discuss mark-set = #f.
