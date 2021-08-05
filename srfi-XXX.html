@@ -694,20 +694,51 @@
 
     <h3>Parameter Objects</h3>
 
+    <p>Each <dfn>parameter object</dfn> is a procedure.</p>
+
+    <p>A <dfn>parameterization</dfn> is an opaque mapping of parameter
+    objects to values.</p>
+
+    <p>Conceptually, each continuation contains at least a special
+      parameterization continuation mark, whose value is a
+      parameterization.  The <dfn>parameterization of a
+      continuation</dfn> is the value of the most recent
+      parameterization continuation mark in the continuation.  The
+      parameterization of the current continuation is the <dfn>current
+	parameterization</dfn>.
+
+    <p>The parameterization of the initial continuation of a top-level
+      program maps each current and future parameter object to its initial value.</p>
+
     <dl class="entries">
       <dt class="procedure"><code>(make-parameter <var>obj</var>)</code></dt>
       <dt class="procedure"><code>(make-parameter <var>obj</var> <var>proc</var>)</code></dt>
       <dt class="procedure"><code>(make-parameter <var>obj</var> <var>proc</var>)</code></dt>
       <dd>
-	<p>TBD</p>
+	<p>Invokes <code><var>proc</var></code>
+	  on <code><var>obj</var></code> to obtain a value and returns
+	  a newly allocated parameter object, which is a procedure
+	  accepting zero or one argument and whose <dfn>initial
+	    value</dfn> is the value and whose <dfn>conversion procedure</dfn> is <code><var>proc</var></code>.</p>
+	<p>
+	  When invoked with zero arguments, the parameter object returns the
+
+	  returns its initial value if the parameterization of the
+	  continuation of the call contains no association for the parameter object, and the associated value otherwise.
+	</p>
+	<p>When invoked with one argument, the conversion function is
+	  applied to it to obtain a value.  The parameter object
+	  replaces its initial value with this value if the parameterization
+
       </dd>
+
       <dt class="syntax"><code>(parameterize [(<span class="token">id</span> <span class="token">expression</span>) &hellip;] <span class="token">body</span>)</code></dt>
       <dd>
 	<p>TBD</p>
       </dd>
       <dt class="procedure"><code>(current-parameterization)</code></dt>
       <dd>
-	<p>TBD</p>
+	<p>Returns the parameterization of the dynamic environment of the call to <code>current-parameterization</code>.</p>
       </dd>
       <dt class="procedure"><code>(parameterization? <var>obj</var>)</code></dt>
       <dd>
