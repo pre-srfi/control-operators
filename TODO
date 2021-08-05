@@ -1,8 +1,19 @@
 * Document and implement a with-continuation-marks form.
+
 * Document guard and with-exception-handler.
+
 * Remove the rec lib in case it isn't needed.
+
 * Revise SRFI 18 condition names to make them more in line with R6RS?
+
 * Document call-in-delimited-continuation.
-* Add information about the initial error handlers in threads and how they abort.
+
+* Add information about the initial error handlers in threads and how they
+  abort.
+
 * Add a thread form, which is basically (make-thread (lambda () <body>)).
+
 * Discuss mark-set = #f.
+
+* At the moment, in the specification, we identify continuation frames with
+  active procedure calls.  In the presence of active tail calls, this is wrong
