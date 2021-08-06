@@ -294,22 +294,20 @@
 	    (set! l (cons x l))))
 	(thread-join!
 	 (thread-start!
-	  (make-thread
-	   (lambda ()
-	     (dynamic-wind
-		 (lambda ()
-		   (out! 'in))
-		 (lambda ()
-		   (call/cc
-		    (lambda (k)
-		      (thread-join!
-		       (thread-start!
-			(make-thread
-			 (lambda ()
-			   (out! 'thread)
-			   (k))))))))
-		 (lambda ()
-		   (out! 'out)))))))
+	  (thread
+	   (dynamic-wind
+	       (lambda ()
+		 (out! 'in))
+	       (lambda ()
+		 (call/cc
+		  (lambda (k)
+		    (thread-join!
+		     (thread-start!
+		      (thread
+		       (out! 'thread)
+		       (k)))))))
+	       (lambda ()
+		 (out! 'out))))))
 	(reverse l)))
 
 ;;; Parameters
@@ -380,15 +378,11 @@
 ;;; Threads
 
 (test 98 (let ([t (thread-start!
-		   (make-thread
-		    (lambda ()
-		      98)))])
+		   (thread 98))])
 	   (thread-join! t)))
 
 (test 96 (let ([t (thread-start!
-		   (make-thread
-		    (lambda ()
-		      (raise 97))))])
+		   (thread (raise 97)))])
 	   (guard (c
 		   [(uncaught-exception? c)
 		    (fx+ -1 (uncaught-exception-reason c))])
@@ -397,18 +391,15 @@
 (test 10 (let ([p (make-parameter 9)])
 	   (parameterize ([p 10])
 	     (let ([t (thread-start!
-		       (make-thread
-			(lambda ()
-			  (p))))])
+		       (thread (p)))])
 	       (thread-join! t)))))
 
 (test #t (let* ([signal? #f]
 		[t (thread-start!
-		    (make-thread
-		     (lambda ()
-		       (set! signal? #t)
-		       (do () (#f)
-			 (thread-yield!)))))])
+		    (thread
+		     (set! signal? #t)
+		     (do () (#f)
+		       (thread-yield!))))])
 	   (do () (signal?)
 	     (display "Wait...")
 	     (thread-yield!))
@@ -419,20 +410,17 @@
 	     #f)))
 
 (test 734 (let* ([p (make-parameter 734)]
-		 [t (make-thread
-		     (lambda ()
-		       (p)))])
+		 [t (thread (p))])
 	    (parameterize ([p 735])
 	      (thread-join! (thread-start! t)))))
 
 (test '(12 13) (let* ([k #f]
 		      [t (thread-start!
-			  (make-thread
-			   (lambda ()
-			     (call-with-current-continuation
-			      (lambda (c)
-				(set! k c)
-				12)))))]
+			  (thread
+			   (call-with-current-continuation
+			    (lambda (c)
+			      (set! k c)
+			      12))))]
 		      [x (thread-join! t)])
 		 (k (list x 13))
 		 14))

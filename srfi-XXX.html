@@ -827,7 +827,7 @@
 
     <p><i>Note:</i> The parameter objects defined in this
       specification are fully compatible with the parameter objects
-      of <a href="#feeley"><cite>SRFI 39</cite></a>
+      of <a href="#feeley2"><cite>SRFI 39</cite></a>
       and <cite>R<sup>7</sup>RS</cite> but add the requirement that
       the last expression in the body of a <code>parameterize</code>
       expression in tail context is in tail context as well.  With
@@ -1080,6 +1080,44 @@
       </dd>
     </dl>
 
+    <h3>Threads</h3>
+
+    <dl class="entries">
+      <dt class="entry"><code>(thread <span class="token">body</span>)</code><span class="type">syntax</span></dt>
+      <dd>
+	<p><i>Syntax:</i>
+	  <code><span class="token">Body</span></code> must be a body.</p>
+	<p><i>Semantics:</i> Operationally equivalent to
+	  evaluating <code>(make-thread (lambda
+	  () <span class="token">body</span>))</code>.  The initial
+	  continuation consists of a single continuation prompt tagged
+	  with the default prompt and with the default handler.  The
+	  parameterization of the initial continuation is the same as
+	  the parameterization of the continuation of
+	  the <code>thread</code> expression.  Moreover, an initial
+	  exception handler is installed in the initial continuation
+	  that aborts to the most recent continuation prompt tagged
+	  with the default prompt tag and calls its handler with a
+	  thunk that, when evaluated, raises the exception.  When an
+	  exception is raised in the dynamic extent of the handler of
+	  the initial continuation prompts, a condition with
+	  type <code>&amp;uncaught-exception</code> and the raised
+	  object as its reason is stored in
+	  the <code>end-exception</code> of the thread before the
+	  thread is finally terminated.  When values are delivered to
+	  the initial continuation, the values are stored in
+	  the <code>end-result</code> of the thread before the thread
+	  is finally terminated.</p>
+	<p><i>Note:</i> This also defines the initial continuation of
+	  a thread created by invoking the <code>make-thread</code>
+	  procedure in <cite>SRFI 18</cite>.</p>
+	<p><i>Note:</i> As threads inherit the parameterization of
+	  when they are created, a <code>thread</code> expression
+	  conveys the meaning better than a call
+	  to <code>make-thread</code>.</p>
+      </dd>
+    </dl>
+
     <h2 id="implementation">Implementation</h2>
 
     <h3>Portability</h3>
@@ -1202,7 +1240,7 @@
       <li id="feeley1">
 	<p>Marc
 	Feeley: <a href="https://srfi.schemers.org/srfi-18/srfi-18.html"><cite>SRFI
-	18: Parameter objects</cite></a>.</p>
+	18: Multithreading support</cite></a>.</p>
       </li>
       <li id="feeley2">
 	<p>Marc
