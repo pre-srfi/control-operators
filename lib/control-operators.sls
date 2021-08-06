@@ -38,7 +38,7 @@
 	  &continuation make-continuation-error continuation-error?
 	  continuation-prompt-tag
 	  raise raise-continuable
-	  current-exception-handler with-exception-handler guard else =>
+	  current-exception-handlers current-exception-handler with-exception-handler guard else =>
 	  make-parameter parameterize
 	  parameterization? current-parameterization call-with-parameterization
 	  current-input-port current-output-port current-error-port
@@ -254,7 +254,7 @@
   (define clear-marks!
     (lambda ()
       (current-marks (make-marks (current-parameterization)
-				 (current-handler-stack)))))
+				 (current-exception-handlers)))))
 
   (define set-mark!
     (lambda (key val)
@@ -497,7 +497,7 @@
       (let f ([con con])
 	(let ([handler (current-exception-handler)])
 	  (with-continuation-mark (handler-stack-continuation-mark-key)
-	      (cdr (current-handler-stack))
+	      (cdr (current-exception-handlers))
 	    (begin
 	      (handler con)
 	      (f (make-non-continuable-violation))))))))
@@ -507,7 +507,7 @@
     (lambda (con)
       (let ([handler (current-exception-handler)])
 	(with-continuation-mark (handler-stack-continuation-mark-key)
-	    (cdr (current-handler-stack))
+	    (cdr (current-exception-handlers))
 	  (handler con)))))
 
   (define call-in-empty-continuation
@@ -1209,13 +1209,13 @@
       (lambda ()
 	mark-key)))
 
-  (define current-handler-stack
+  (define current-exception-handlers
     (lambda ()
       (marks-ref (current-marks) (handler-stack-continuation-mark-key))))
 
   (define current-exception-handler
     (lambda ()
-      (car (current-handler-stack))))
+      (car (current-exception-handlers))))
 
   (define/who with-exception-handler
     (lambda (handler thunk)
@@ -1224,7 +1224,7 @@
       (unless (procedure? thunk)
 	(assertion-violation who "not a procedure" thunk))
       (with-continuation-mark (handler-stack-continuation-mark-key)
-	  (cons handler (current-handler-stack))
+	  (cons handler (current-exception-handlers))
 	(thunk))))
 
   (define-syntax/who guard
