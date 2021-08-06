@@ -72,7 +72,7 @@
 
 (test #t (continuation-prompt-tag? tag))
 
-(test 42 (guard (c [(continuation-error? c) 42])
+(test 42 (guard (c [(continuation-violation? c) 42])
 	   (abort-current-continuation tag)))
 
 (test 5 (call-with-continuation-prompt (lambda () 5)
@@ -391,8 +391,8 @@
 (test 96 (let ([t (thread-start!
 		   (thread (raise 97)))])
 	   (guard (c
-		   [(uncaught-exception? c)
-		    (fx+ -1 (uncaught-exception-reason c))])
+		   [(uncaught-exception-error? c)
+		    (fx+ -1 (uncaught-exception-error-reason c))])
 	     (thread-join! t))))
 
 (test 10 (let ([p (make-parameter 9)])
@@ -412,7 +412,7 @@
 	     (thread-yield!))
 	   (thread-terminate! t)
 	   (guard (c
-		   [(terminated-thread-exception? c)])
+		   [(thread-already-terminated-error? c)])
 	     (thread-join! t)
 	     #f)))
 
@@ -474,14 +474,14 @@
 	    (reverse l)))
 	(out! x)
 	(out!
-	 (guard (c [(uncaught-exception? c)
-		    (uncaught-exception-reason c)])
+	 (guard (c [(uncaught-exception-error? c)
+		    (uncaught-exception-error-reason c)])
 	   (force p)
 	   3))
 	(out! x)
 	(out!
-	 (guard (c [(uncaught-exception? c)
-		    (uncaught-exception-reason c)])
+	 (guard (c [(uncaught-exception-error? c)
+		    (uncaught-exception-error-reason c)])
 	   (force p)
 	   4))
 	(out! x)

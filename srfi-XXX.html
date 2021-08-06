@@ -203,26 +203,83 @@
 
     <p><i>Note:</i> If this SRFI is implemented in a system that does
       not support the condition system of <cite>R6RS</cite>, the
-      respecitve parts of this specification should be
+      respective parts of this specification should be
       applied <i>mutatis mutandis</i>.</p>
 
     <dl class="entries">
-      <dt class="condition-type"><code>&amp;continuation</code></dt>
-      <dt class="procedure"><code>(make-continuation-condition <var>obj</var></code>)</dt>
-      <dt class="procedure"><code>(continuation-condition? <var>obj</var></code>)</dt>
-      <dt class="procedure"><code>(continuation-prompt-tag <var>condition</var></code>)</dt>
+      <dt class="entry"><code>&amp;continuation</code><span class="type">condition-type</span></dt>
+      <dt class="procedure"><code>(make-continuation-violation <var>obj</var></code>)</dt>
+      <dt class="procedure"><code>(continuation-violation? <var>obj</var></code>)</dt>
+      <dt class="procedure"><code>(continuation-violation-prompt-tag <var>condition</var></code>)</dt>
       <dd>
-	<p>
-	  This condition type could be defined by
-	</p>
-	<pre>(define-condition-type &amp;continuation &amp;error
-	  make-continuation-condition continuation-condition?
-	  (prompt-tag continuation-prompt-tag))</pre>
-	<p>
-	  This condition type describes errors that occurred during
-	  non-local control
+	<p>This condition type could be defined by</p>
+	<pre>(define-condition-type &amp;continuation &amp;violation
+  make-continuation-violation continuation-violation?
+  (prompt-tag continuation-violation-prompt-tag))</pre>
+	<p>This condition type describes violations that occurred
+	  during non-local control
 	  operations.  <code><var>Prompt-tag</var></code> should be
 	  the tag of the delimiting prompt.</p>
+      </dd>
+      <dt class="entry"><code>&amp;thread</code><span class="type">condition-type</span></dt>
+      <dt class="procedure"><code>(make-thread-error <var>obj</var></code>)</dt>
+      <dt class="procedure"><code>(thread-error? <var>obj</var></code>)</dt>
+      <dd>
+	<p>This condition type could be defined by</p>
+	<pre>(define-condition-type &amp;thread &amp;error
+  make-thread-error thread-error?)</pre>
+	<p>This is a super type for a set of more specific thread errors.</p>
+      </dd>
+      <dt class="entry"><code>&amp;uncaught-exception</code><span class="type">condition-type</span></dt>
+      <dt class="procedure"><code>(make-uncaught-exception-error <var>obj</var></code>)</dt>
+      <dt class="procedure"><code>(uncaught-exception-error? <var>obj</var></code>)</dt>
+      <dt class="procedure"><code>(uncaught-exception-error-reason <var>condition</var></code>)</dt>
+      <dd>
+	<p>This condition type could be defined by</p>
+	<pre>(define-condition-type &amp;uncaught-exception &amp;thread
+  make-uncaught-exception-error uncaught-exception-error?
+  (reason uncaught-exception-reason))</pre>
+	<p><code>Uncaught-exception-error?</code>
+	  and <code>uncaught-exception-error-reason</code> are the
+	  same as <code>uncaught-exception</code>
+	  and <code>uncaught-exception-reason</code>
+	  in <a href="#feeley1"><cite>SRFI 18</cite></a>.</p>
+	<p><i>Note:</i> The names defined in this specification are
+	  more in line with the naming conventions
+	  in <cite>R<sup>6</sup>RS</cite>.</p>
+      </dd>
+      <dt class="entry"><code>&amp;thread-already-terminated</code><span class="type">condition-type</span></dt>
+      <dt class="procedure"><code>(make-thread-already-terminated-error <var>obj</var></code>)</dt>
+      <dt class="procedure"><code>(thread-already-terminated-error? <var>obj</var></code>)</dt>
+      <dd>
+	<p>This condition type could be defined by</p>
+	<pre>(define-condition-type &amp;thread-already-terminated &amp;thread
+  make-thread-already-terminated-error thread-already-terminated-error?)</pre>
+	<p><code>Thread-already-terminated-error?</code>  is the same
+	  as <code>terminated-thread-exception?</code>
+	  in <a href="#feeley1"><cite>SRFI 18</cite></a>.</p>
+      </dd>
+      <dt class="entry"><code>&amp;thread-timeout</code><span class="type">condition-type</span></dt>
+      <dt class="procedure"><code>(make-thread-timeout-error <var>obj</var></code>)</dt>
+      <dt class="procedure"><code>(thread-timeout-error? <var>obj</var></code>)</dt>
+      <dd>
+	<p>This condition type could be defined by</p>
+	<pre>(define-condition-type &amp;thread-timeout &amp;thread
+  make-thread-timeout-error thread-timeout-error?)</pre>
+	<p><code>Thread-timeout-error?</code>  is the same
+	  as <code>join-timeout-exception?</code>
+	  in <a href="#feeley1"><cite>SRFI 18</cite></a>.</p>
+      </dd>
+      <dt class="entry"><code>&amp;thread-abandoned-mutex</code><span class="type">condition-type</span></dt>
+      <dt class="procedure"><code>(make-thread-abandoned-mutex-error <var>obj</var></code>)</dt>
+      <dt class="procedure"><code>(thread-abandoned-mutex-error? <var>obj</var></code>)</dt>
+      <dd>
+	<p>This condition type could be defined by</p>
+	<pre>(define-condition-type &amp;thread-abandoned-mutex &amp;thread
+  make-thread-abandoned-mutex-error thread-abandoned-mutex-error?)</pre>
+	<p><code>Thread-abandoned-mutex-error?</code>  is the same
+	  as <code>abandoned-mutex-exception?</code>
+	  in <a href="#feeley1"><cite>SRFI 18</cite></a>.</p>
       </dd>
     </dl>
 
@@ -1086,7 +1143,7 @@
 	<p><i>Note: </i> The tail context requirement is neither
 	  in <cite>R<sup>6</sup>RS</cite>, nor
 	  in <cite>R<sup>7</sup>RS</cite>.  It is
-	  in <a href="#feeley1"><cite>SRFI 18</cite></a>,
+	  in <cite>SRFI 18</cite>,
 	  whose <code>raise</code> corresponds
 	  to <code>raise-continuable</code>
 	  in <cite>R<sup>6</sup>RS</cite>

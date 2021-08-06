@@ -1,5 +1,7 @@
 * Document and implement a with-continuation-marks form.
 
-* Revise SRFI 18 condition names to make them more in line with R6RS?
+* Complete the rationale
 
-* Reference to Chez.
+* Add library names
+
+* Add examples

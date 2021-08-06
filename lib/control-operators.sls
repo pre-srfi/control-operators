@@ -34,9 +34,8 @@
           make-continuation-prompt-tag continuation-prompt-tag?
 	  default-continuation-prompt-tag
           make-continuation-mark-key continuation-mark-key?
-	  condition-prompt-tag
-	  &continuation make-continuation-error continuation-error?
-	  continuation-prompt-tag
+	  &continuation make-continuation-violation continuation-violation?
+	  continuation-violation-prompt-tag
 	  raise raise-continuable
 	  current-exception-handlers current-exception-handler with-exception-handler guard else =>
 	  make-parameter parameterize
@@ -49,8 +48,16 @@
 	  current-thread thread? make-thread thread-name thread-specific
 	  thread-specific-set! thread-start! thread-yield!
 	  thread-terminate! thread-join!
-	  uncaught-exception? uncaught-exception-reason
-	  terminated-thread-exception?
+	  &thread make-thread-error thread-error?
+	  &uncaught-exception
+	  make-uncaught-exception-error uncaught-exception-error?
+	  uncaught-exception-error-reason
+	  &thread-already-terminated
+	  &thread-timeout
+	  &thread-abandoned-mutex
+	  make-thread-abandoned-mutex-error thread-abandoned-mutex-error?
+	  make-thread-timeout-error thread-timeout-error?
+	  make-thread-already-terminated-error thread-already-terminated-error?
 	  delay make-promise promise? force
 	  run
 	  (rename (call-with-current-continuation call/cc))
@@ -81,20 +88,36 @@
 
   ;; Conditions
 
-  (define-condition-type &continuation &error
-    make-continuation-error continuation-error?
-    (prompt-tag condition-prompt-tag))
+  (define-condition-type &continuation &violation
+    make-continuation-violation continuation-violation?
+    (prompt-tag continuation-violation-prompt-tag))
 
-  (define continuation-error
+  (define continuation-violation
     (lambda (who msg prompt-tag . irr*)
       (let ((c (condition
-		(make-continuation-error prompt-tag)
+		(make-continuation-violation prompt-tag)
 		(make-message-condition msg)
 		(make-irritants-condition irr*))))
 	(raise
 	 (if who
 	     (condition c (make-who-condition who))
 	     c)))))
+
+  (define-condition-type &thread &error
+    make-thread-error thread-error?)
+
+  (define-condition-type &uncaught-exception &thread
+    make-uncaught-exception-error uncaught-exception-error?
+    (reason uncaught-exception-error-reason))
+
+  (define-condition-type &thread-already-terminated &thread
+    make-thread-already-terminated-error thread-already-terminated-error?)
+
+  (define-condition-type &thread-timeout &thread
+    make-thread-timeout-error thread-timeout-error?)
+
+  (define-condition-type &thread-abandoned-mutex &thread
+    make-thread-abandoned-mutex-error thread-abandoned-mutex-error?)
 
   ;; Continuation mark keys
 
@@ -361,7 +384,7 @@
 	     [(eq? tag prompt-tag)
 	      '()]
 	     [(and barrier? (eq? tag (continuation-barrier-tag)))
-	      (continuation-error who "applying the composable continuation would introduce a continuation barrier"
+	      (continuation-violation who "applying the composable continuation would introduce a continuation barrier"
 				  prompt-tag)]
 	     [else
 	      (cons frame (f mk))]))))))
@@ -493,7 +516,7 @@
 	 end-k
 	 (lambda ()
 	   (unless (symbol=? (thread-current-state thread) (thread-state terminated))
-	     (thread-end-exception-set! thread (make-uncaught-exception con))))))))
+	     (thread-end-exception-set! thread (make-uncaught-exception-error con))))))))
 
   ;; SRFI 18 says that the handler should be called tail-called
   ;; by (some) primitives.  This doesn't make much sense with the
@@ -585,7 +608,7 @@
 	  (metacontinuation-contains-prompt?
 	   (current-metacontinuation)
 	   prompt-tag)
-	(continuation-error
+	(continuation-violation
 	 who "no prompt with the given tag in current continuation" prompt-tag))
       (let f ()
 	(if (null? (current-winders))
@@ -611,7 +634,7 @@
 		   (metacontinuation-contains-prompt?
 		    (current-metacontinuation)
 		    prompt-tag)
-		 (continuation-error
+		 (continuation-violation
 		  who
 		  "lost prompt with the given tag during abort of the current continuation"
 		  prompt-tag))
@@ -723,7 +746,7 @@
       (let ([base-mk*
 	     (let f ([current-mk current-mk] [base-mk* '()])
 	       (when (null? current-mk)
-		 (continuation-error who "current continuation includes no prompt with the given tag" tag))
+		 (continuation-violation who "current continuation includes no prompt with the given tag" tag))
 	       (if (eq? (metacontinuation-frame-tag (car current-mk)) tag)
 		   (cons current-mk base-mk*)
 		   (f (cdr current-mk) (cons current-mk base-mk*))))])
@@ -747,7 +770,7 @@
       (do ([dest-mf* dest-mf* (cdr dest-mf*)])
 	  ((null? dest-mf*))
 	(when (eq? (metacontinuation-frame-tag (car dest-mf*)) (continuation-barrier-tag))
-	  (continuation-error #f "apply the continuation would introduce a continuation barrier" tag)))))
+	  (continuation-violation #f "apply the continuation would introduce a continuation barrier" tag)))))
 
   (define call-in-continuation
     (lambda (k thunk)
@@ -1391,7 +1414,7 @@
 	    (let ([s (thread-current-state thread)])
 	      (unless (symbol=? s (thread-state terminated))
 		 (thread-current-state-set! thread (thread-state terminated))
-		 (thread-end-exception-set! thread (make-terminated-thread-exception))
+		 (thread-end-exception-set! thread (make-thread-already-terminated-error))
 		 (if (symbol=? s (thread-state new))
 		     (%condition-variable-broadcast! cv)
 		     (%thread-terminate! (thread-%thread thread))))
@@ -1414,13 +1437,6 @@
 	(if (thread-end-exception thread)
 	    (raise (thread-end-exception thread))
 	    (apply values (thread-end-result thread))))))
-
-  (define-condition-type &uncaught-exception &error
-    make-uncaught-exception uncaught-exception?
-    (reason uncaught-exception-reason))
-
-  (define-condition-type &terminated-thread-exception &error
-    make-terminated-thread-exception terminated-thread-exception?)
 
   ;; Promises
 
@@ -1498,7 +1514,7 @@
 			k (current-parameterization)
 			(lambda (con)
 			  (end-k (lambda ()
-				   (raise (make-uncaught-exception con)))))
+				   (raise (make-uncaught-exception-error con)))))
 			(current-thread)))
 		      (abort thunk))))))])
 	  (%current-dynamic-environment saved-env)
