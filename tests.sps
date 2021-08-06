@@ -192,6 +192,13 @@
 	    (continuation-mark-set->list #f 'key1)
 	    (continuation-mark-set->list #f 'key2)))))
 
+(test '((mark1) (mark2))
+      (with-continuation-marks (['key1 'mark1]
+				['key2 'mark2])
+	(list
+	  (continuation-mark-set->list #f 'key1)
+	  (continuation-mark-set->list #f 'key2))))
+
 (test '(1)
       (let f ([n 10])
 	(if (fxzero? n)

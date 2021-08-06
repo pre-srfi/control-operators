@@ -28,7 +28,8 @@
 	  continuation?
 	  call-in-continuation continuation-prompt-available?
 	  call-with-continuation-barrier dynamic-wind
-	  with-continuation-mark call-with-immediate-continuation-mark
+	  with-continuation-mark with-continuation-marks
+	  call-with-immediate-continuation-mark
 	  continuation-mark-set->list continuation-mark-set->list*
 	  continuation-mark-set->iterator continuation-mark-set-first
           make-continuation-prompt-tag continuation-prompt-tag?
@@ -885,6 +886,18 @@
 	    val-expr
 	    (lambda ()
 	      result-expr))]
+	[_
+	 (syntax-violation who "invalid syntax" stx)])))
+
+  (define-syntax/who with-continuation-marks
+    (lambda (stx)
+      (syntax-case stx ()
+	[(_ ([key-expr val-expr] ...) e1 e2 ...)
+	 #'(call-in-empty-continuation
+	    (lambda ()
+	      (set-mark! key-expr val-expr) ...
+	      (letrec* ()
+		e1 e2 ...)))]
 	[_
 	 (syntax-violation who "invalid syntax" stx)])))
 

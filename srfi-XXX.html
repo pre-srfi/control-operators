@@ -616,6 +616,29 @@
 	well.</p>
       </dd>
 
+      <dt class="syntax"><code>(with-continuation-marks ([<span class="token">key-expr</span> <span class="token">val-expr</span>] &hellip;) <span class="token">body</span>)</code></dt>
+      <dd>
+	<p><i>Syntax:</i>
+	  <code>The <span class="token">key-expr</span></code>s and
+	  the <code><span class="token">val-expr</span></code>s must
+	  be expressions, and <code><span class="token">body</span></code> must
+	  be a body.</p>
+	<p><i>Semantics:</i> The <code>key-expr</code>s and
+	  the <code>val-expr</code>s are evaluated in an unspecified
+	  order to obtain a list of keys and a list of corresponding
+	  values, respectively. The most recent continuation frame in
+	  the continuation of the <code>with-continuation-marks</code>
+	  expression is then dynamically annotated with a continuation
+	  mark mapping the keys to the values,
+	  and <code>body</code> is evaluated in the continuation
+	  of the <code>with-continuation-marks</code> expression.</p>
+	<p>It is unspecified which value prevails if two of the keys are the
+	  same.</p>
+	<p>If a <code>with-continuation-marks</code> expression is in
+	  tail context, the last expression of <code>body</code> is in
+	  tail context as well.</p>
+      </dd>
+
       <dt class="procedure"><code>(call-with-immediate-continuation-mark <var>key</var> <var>proc</var>)</code></dt>
       <dt class="procedure"><code>(call-with-immediate-continuation-mark <var>key</var> <var>proc</var> <var>obj</var>)</code></dt>
       <dd>
@@ -828,7 +851,7 @@
 	  the invocation is unspecified.</p>
       </dd>
 
-      <dt class="syntax"><code>(parameterize [(<span class="token">param-expr</span> <span class="token">expression</span>) &hellip;] <span class="token">body</span>)</code></dt>
+      <dt class="syntax"><code>(parameterize ([<span class="token">param-expr</span> <span class="token">expression</span>] &hellip;) <span class="token">body</span>)</code></dt>
       <dd>
 	<p><i>Syntax:</i>
 	  The <code><span class="token">param-expr</span></code>s and
@@ -854,6 +877,8 @@
 	  parameterization and
 	  the <code><span class="token">body</span></code> is
 	  evaluated in this continuation.</p>
+	<p>It is unspecified which value prevails if two of the
+	  parameter objects are the same.</p>
 	<p>If a <code>parameterize</code> expression is in tail
 	  context, the last expression
 	  in <code><span class="token">body</span></code> is in tail
