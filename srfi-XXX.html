@@ -104,7 +104,7 @@
     <p>To investigate continuations, this SRFI supports continuation
       marks and offers operators to set and retrieve them.</p>
 
-    <p>Moreover, this SRFI clearly defines clear semantics of
+    <p>Moreover, this SRFI defines clear semantics of
       exceptions, parameter objects, promises, and threads consistent
       with the other concepts defined here.</p>
 
@@ -127,18 +127,26 @@
       implementation, suffices to implement the rich operators in this
       SRFI.</p>
 
+    <p>The theoretical concepts behind the operators described in this
+      specification are well-understood and not new.  The author of this SRFI
+      does not claim any originality for any idea presented here, but is lucky
+      to be able to stand on the shoulder of giants.  (See the various
+      references in <a href="#dybvig"><cite>A Monadic Framework for Delimited
+      Continuations</cite></a>, for example.)</p>
+
+    <h3>Overview</h3>
+
     <p>In detail, the contributions of this SRFI are the following:</p>
 
-    <h3>Continuations and Prompts</h3>
+    <h4>Continuations and Prompts</h4>
 
     <p>As explained in <cite>R<sup>6</sup>RS</cite> and
-      <cite>R<sup>7</sup>RS</cite>, whenever a Scheme expression is
-       evaluated, there is a <dfn>continuation</dfn> wanting the
-       result of the expression.  We can view a continuation as a
-       sequence of active procedure calls.  Each evaluation step can
-       alter the current continuation.  For example, calls add an
-       active procedure call to the current continuation, while
-      returns remove an active procedure call.
+      <cite>R<sup>7</sup>RS</cite>, whenever a Scheme expression is evaluated,
+       there is a <dfn>continuation</dfn> wanting the result of the expression.
+       We can view a continuation as a sequence of active procedure calls.
+       Evaluation steps alter the current continuation.  Calls add an active
+       procedure call to the current continuation, while returns remove an
+       active procedure call.
     </p>
 
     <p>Certain control operations can change the current continuation
@@ -147,44 +155,106 @@
       procedure that, when later called, abandons the then current
       continuation and replaces it with the captured one.</p>
 
-    <p>Conceptually, only an end segment of the current continuation
-      is ever replaced.  For example, when running a Scheme program,
-      running a thread, or evaluating an expression at the REPL
-      prompt, the old and the new current continuation always share an
-      initial segment at least up to the point when the program was
-      started, the thread was started, or the expression sent to the
-      REPL.</p>
+    <p>Conceptually, only an end segment of the current continuation is ever
+      replaced.  For example, when running a Scheme program, running a thread,
+      or evaluating an expression at the REPL prompt, the old and the new
+      current continuation always share an initial segment at least up to the
+      point when the program was started, the thread was started, or the
+      expression sent to the REPL.</p>
 
     <p>Therefore, <code>call/cc</code> never has to, nor actually does
       capture the whole current continuation, but only an end segment.
       Reinstating the captured continuation means to replace the end
       segment of the then current continuation.</p>
 
-    <p>With <code>call/cc</code> alone, the programmer has no control
-      over the size of this end segment.  This SRFI offers operators
-      to exactly do this.  With these operators, the programmer can
-      install <dfn>continuation prompts</dfn> identified
-      by <dfn>prompt tags</dfn> in the current continuation.  When a
-      continuation is later captured, it is delimited by the nearest
-      continuation prompt with a given prompt tag.  Default prompts
-      are installed at the start of each program, the start of each
-      thread, and when expressions are sent to the REPL.</p>
+    <p>With <code>call/cc</code> alone, the programmer has no control over the
+      size of this end segment.  This SRFI offers operators to exactly do this.
+      With these operators, the programmer can install <dfn>continuation
+      prompts</dfn> identified by <dfn>prompt tags</dfn> in the current
+      continuation.  When a continuation is later captured, it is delimited by
+      the nearest continuation prompt with a given prompt tag.  Default prompts
+      are installed at the start of each program, the start of each thread, and
+      when promises are forced.</p>
 
-    <h3>Composable and Non-Composable Continuations</h3>
+    <h4>Composable and Non-Composable Continuations</h4>
 
-    TBD
+    <p>When a continuation captured
+      with <code>call-with-current-continuation</code> is later invoked, the
+      invocation never returns to the continuation of the call to captured
+      incontinuation.  In this sense, such a continuation procedure is far from
+      being a function in the mathematical sense as it doesn't deliver any
+      values.  In particular, it cannot be composed.  For that reason,
+      continuations captured by <code>call-with-current-continuation</code> are
+      also called <dfn>non-composable continuations</dfn>.</p>
 
-    <h3>Continuation Marks</h3>
+    <p>This SRFI offers an
+      operator <code>call-with-composable-composition</code> that also captures
+      the current continuation, but reifies it into a different type of
+      continuation, a <dfn>composable continuation</dfn>.  Contrary to
+      non-composable continuations, a composable continuation, when invoked,
+      does not abort any active procedure call, but just extends the then
+      current continuation.  In particular, it delivers values to the
+      continuation of the call to it.  A composable continuation therefore
+      behaves like an ordinary procedure.</p>
 
-    TBD
+    <h4>Continuation Marks</h4>
 
-    <h3>Continuations and Threads</h3>
+    <p><dfn>Continuation marks</dfn> are a feature that allows attaching
+      information in the form of key-value pairs to individual continuation
+      frames (which a maximal segments of continuations of a number of active
+      tail calls followed by at most one non-active tail call).  The set of
+      continuation marks of the continuation frames of a continuation belongs
+      to this continuation and is thus also captured
+      by <code>call-with-current-continuation</code>
+      and <code>call-with-composable-continuation</code>.</p>
 
-    TBD
+    <p>Continuation marks can be used to implement exception handlers,
+      parameter objects, and an implementation of <code>delay</code>
+      and <code>force</code> of <a href="#kelsey1"><cite>R<sup>5</sup>RS</cite></a>
+      that supports iterative lazy algorithms.</p>
 
-    <h3>Parameter Objects</h3>
+    <p>A crucial feature of continuation marks is that they allow to attach
+      marks to the most recent continuation frame without creating active
+      non-tail calls.  This allows to implement a <code>parameterize</code>
+      form where the last expression in its body is in tail context when
+      the <code>parameterize</code> form is in tail position.  Similarly, it
+      becomes possible to implement <code>with-exception-handler</code> in a
+      way so that its thunk is called in tail context if the call
+      to <code>with-exception-handler</code> is in tail context.</p>
 
-    <h3>Promises</h3>
+    <p>In fact, with continuation marks, the concept of tail calls becomes
+      operationally observable.</p>
+
+    <h4>Continuations and Threads</h4>
+
+    <p>The concept of threads and the semantics of multithreaded programs are
+      deeply linked with the concepts that are involved in this specification.
+      For example, each thread possesses an initial continuation, containing a
+      continuation prompt with a handler that has to be described.  For that,
+      this specification extends the semantics of <a href="#feeley1"><cite>SRFI
+      18</cite></a> to provide consistent semantics in the presence of multiple
+      threads, continuations, continuation prompts, and parameterizations.</p>
+
+    <h4>Parameter Objects</h4>
+
+    <p>Parameter objects are a tool to provide dynamically-scoped variables to
+      the Scheme language in a clean way.  As a definition of parameter objects
+      in terms of continuation marks is possible and as an implementation in
+      terms of these allows rich operations like capturing the current
+      parameterization to later reinstall it, this SRFI provides both.</p>
+
+    <p>Moreover, this specification makes a decision on the behavior of mutable
+      parameter objects with respect to multiple threads.  If a parameter that
+      is inherited by a newly created thread and has not been reparameterized
+      is mutated by one of the threads, the mutation will also (eventually) be
+      observed by the other thread.  This is a clear semantics because this is
+      the same behavior as implemented by lexical variables.</p>
+
+    <h4>Promises</h4>
+
+    <p>
+
+    </p>
 
     <h3>Relation to Other Standards</h3>
 
@@ -199,16 +269,33 @@
 
     <h3>Relation to Other SRFIs</h3>
 
-    <p>This SRFI supersedes <a href="#kelsey"><cite>SRFI
+    <p>This SRFI supersedes <a href="#kelsey2"><cite>SRFI
 	  34</cite></a>, <a href="#feeley2"><cite>SRFI
 	  39</cite></a>, <a href="#nieper1"><cite>SRFI
 	  154</cite></a>, <a href="#nieper2"><cite>SRFI
 	  155</cite></a>, and <a href="#nieper3"><cite>SRFI
 	  157</cite></a>.</p>
 
-    <p><a href="#feeley1"><cite>SRFI 18</cite></a> is extended.</p>
+    <p><cite>SRFI 18</cite> is extended.</p>
 
     <h3>Implementation</h3>
+
+    <p>The accompanying sample implementation does not implement the libraries
+      defined in this specification but it demonstrates how they can be as soon
+      as a small set of easily implementable primitives are provided by the
+      Scheme implementation.</p>
+
+    <p>The sample implementation provides versions of all procedures and syntax
+      described in this specification and allows playing with them.  A runnable
+      test suite is also provided.</p>
+
+    <p>The sample implementation is written in the Scheme dialect
+      of <cite>R<sup>6</sup>RS</cite> because it is supposed to be run
+      on <a href="#chezscheme"><cite>Chez Scheme</cite></a>, an implementation
+      of that Scheme dialect.  However, the code should be easily adaptable to
+      any other Scheme dialect.  In fact, the goal of the sample implementation
+      is to enable Scheme implementers to add the procedures and syntax defined
+      in this SRFI to their Scheme implementations with little effort.</p>
 
     <h2 id="specification">Specification</h2>
 
@@ -933,22 +1020,20 @@
       </dd>
     </dl>
 
-    <p><i>Note:</i> The parameter objects defined in this
-      specification are fully compatible with the parameter objects
+    <p><i>Note:</i> The parameter objects defined in this specification are
+      fully compatible with the parameter objects
       of <a href="#feeley2"><cite>SRFI 39</cite></a>
-      and <cite>R<sup>7</sup>RS</cite> but add the requirement that
-      the last expression in the body of a <code>parameterize</code>
-      expression in tail context is in tail context as well.  With
-      respect to multiple threads, this specification differs
-      from <cite>Racket</cite> in that the cells associated with
-      parameter objects are not “thread-local” in this specification.
-      As has already been observed by Marc Feeley during the
-      discussion period of <cite>SRFI 39</cite> this is the cleaner,
-      faster, and more expressive semantics.  Finally, the parameter
-      objects defined here are not fully compatible with the
-      parameters of <a href="#chez"><cite>Chez Scheme</cite></a>.
-      While these offer some features over the parameter objects
-      in <cite>SRFI 39</cite> and <cite>R<sup>7</sup>RS</cite>, they
+      and <cite>R<sup>7</sup>RS</cite> but add the requirement that the last
+      expression in the body of a <code>parameterize</code> expression in tail
+      context is in tail context as well.  With respect to multiple threads,
+      this specification differs from <cite>Racket</cite> in that the cells
+      associated with parameter objects are not “thread-local” in this
+      specification.  As has already been observed by Marc Feeley during the
+      discussion period of <cite>SRFI 39</cite> this is the cleaner, faster,
+      and more expressive semantics.  Finally, the parameter objects defined
+      here are not fully compatible with the parameters of <cite>Chez
+      Scheme</cite>.  While these offer some features over the parameter
+      objects in <cite>SRFI 39</cite> and <cite>R<sup>7</sup>RS</cite>, they
       would be incompatible with the tail context guarantee of
       the <code>parameterize</code> form.</p>
 
@@ -1499,8 +1584,8 @@
     operators.</p>
 
     <p>The sample implementation builds upon the ideas presented
-      in <a href="#dybvig"><cite>A Monadic Framework for Delimited
-      Continuations</cite></a> and found in Racket's CS
+      in <cite>A Monadic Framework for Delimited
+      Continuations</cite> and found in Racket's CS
       implementation.</p>
 
     <p>Finally, I would like to thank Arthur A. Gleckler for
@@ -1539,7 +1624,14 @@
 	Gilray: <a href="https://srfi.schemers.org/srfi-158/srfi-158.html"><cite>SRFI
 	158: Generators and Accumulators</cite></a>.</p>
       </li>
-      <li id="kelsey">
+      <li id="kelsey1">
+	<p>Richard Kelsey, William Clinger, Jonathan Rees (eds.):
+	  <cite>Revised<sup>5</sup> Report on the Algorithmic Language
+	      Scheme</cite>, ACM SIGPLAN Notices, Volume 33, Issue 9, Sept. 1,
+	      1998, pp.
+	  26–76. DOI: <a href="https://doi.org/10.1145/290229.290234">10.1145/290229.290234</a>.</p>
+      </li>
+      <li id="kelsey2">
 	<p>Richard Kelsey, Michael Sperber:
 	  <a href="https://srfi.schemers.org/srfi-34/srfi-34.html"><cite>SRFI
 	      34: Exception Handling for Programs</cite></a>.</p>
