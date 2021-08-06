@@ -65,10 +65,9 @@
 
     <h2 id="abstract">Abstract</h2>
 
-    <p>This SRFI defines a rich set of control operators, which has
-      originally been implemented in this form
-      in <a href="#racket"><cite>Racket</cite></a>, for the Scheme
-      programming language.  This set includes the
+    <p>This SRFI defines a rich set of control operators, which are
+      also available in <a href="#racket"><cite>Racket</cite></a>, for
+      the Scheme programming language.  This set includes the
       venerable <code>call/cc</code>.</p>
 
     <p>Prompts delimit continuations,
@@ -79,6 +78,10 @@
     <p>To investigate continuations, this SRFI supports continuation
       marks and offers operators to set and retrieve them.</p>
 
+    <p>Moreover, this SRFI clearly defines clear semantics of
+      exceptions, parameter objects, promises, and threads consistent
+      with the other concepts defined here.</p>
+
     <h2 id="issues">Issues</h2>
 
     <p>None at present.</p>
@@ -86,17 +89,17 @@
     <h2 id="rationale">Rationale</h2>
 
     <p>The aim of this SRFI is to provide a consistent set of control
-      operators vastly extending the scope of the venerable pair
-      of <code>call/cc</code> and <code>dynamic-wind</code>.  The
-      procedures and syntax in this SRFI can be presented as an
+      operators and related syntax and procedures vastly extending the
+      scope of the venerable pair of <code>call/cc</code>
+      and <code>dynamic-wind</code>.  The procedures and syntax in
+      this SRFI can be provided as
       <a href="#sperber"><cite>R<sup>6</sup>RS</cite></a> or as
-      an <a href="#shinn"><cite>R<sup>7</sup>RS</cite></a> library,
-      which would be named <code>(srfi :XXX control)</code>
-      or <code>(srfi XXX)</code>, respectively.  Although a portable
-      implementation is not possible, it is demonstrated by the sample
-      implementation that a small set of primitives, which can easily
-      be provided by any Scheme implementation, suffices to implement
-      the rich operators in this SRFI.</p>
+      <a href="#shinn"><cite>R<sup>7</sup>RS</cite></a> libraries.
+      Although a portable implementation is not possible, it is
+      demonstrated by the sample implementation that a small set of
+      primitives, which can easily be provided by any Scheme
+      implementation, suffices to implement the rich operators in this
+      SRFI.</p>
 
     <p>In detail, the contributions of this SRFI are the following:</p>
 
@@ -161,6 +164,22 @@
 
     <h2 id="specification">Specification</h2>
 
+    <h3>Libraries</h3>
+
+    <p>The syntax and procedures defined below are provided by
+      sublibraries within <code>(srfi :XXX control)</code>
+      (see <a href="#van-horn"><cite>SRFI 97</cite></a>).</p>
+
+    <p>The <code>(srfi :XXX)</code> and <code>(srfi :XXX
+      control)</code> library is a composite of the sublibraries
+      described in this specification.</p>
+
+    <p>In an implementation of <cite>R<sup>7</sup>RS</cite>, the
+      composite library is named <code>(srfi XXX)</code> instead, and
+      the sublibraries are sublibraries within <code>(srfi XXX)</code>
+      instead of <code>(srfi XXX :control)</code>.  Moreover, the
+      library name parts are singularized.</p>
+
     <h3>Entry format</h3>
 
     <p>The following naming conventions imply type restrictions:</p>
@@ -199,7 +218,11 @@
       iterator for a non empty list returns the head of the list and
       an iterator for its tail.</p>
 
-    <h3>Conditions</h3>
+    <h3>Continuation Prompts</h3>
+
+    <p>This section describes the <code>(srfi :XXX control prompts)</code> library.</p>
+
+    <h4>Conditions</h4>
 
     <p><i>Note:</i> If this SRFI is implemented in a system that does
       not support the condition system of <cite>R6RS</cite>, the
@@ -221,69 +244,9 @@
 	  operations.  <code><var>Prompt-tag</var></code> should be
 	  the tag of the delimiting prompt.</p>
       </dd>
-      <dt class="entry"><code>&amp;thread</code><span class="type">condition-type</span></dt>
-      <dt class="procedure"><code>(make-thread-error <var>obj</var></code>)</dt>
-      <dt class="procedure"><code>(thread-error? <var>obj</var></code>)</dt>
-      <dd>
-	<p>This condition type could be defined by</p>
-	<pre>(define-condition-type &amp;thread &amp;error
-  make-thread-error thread-error?)</pre>
-	<p>This is a super type for a set of more specific thread errors.</p>
-      </dd>
-      <dt class="entry"><code>&amp;uncaught-exception</code><span class="type">condition-type</span></dt>
-      <dt class="procedure"><code>(make-uncaught-exception-error <var>obj</var></code>)</dt>
-      <dt class="procedure"><code>(uncaught-exception-error? <var>obj</var></code>)</dt>
-      <dt class="procedure"><code>(uncaught-exception-error-reason <var>condition</var></code>)</dt>
-      <dd>
-	<p>This condition type could be defined by</p>
-	<pre>(define-condition-type &amp;uncaught-exception &amp;thread
-  make-uncaught-exception-error uncaught-exception-error?
-  (reason uncaught-exception-reason))</pre>
-	<p><code>Uncaught-exception-error?</code>
-	  and <code>uncaught-exception-error-reason</code> are the
-	  same as <code>uncaught-exception</code>
-	  and <code>uncaught-exception-reason</code>
-	  in <a href="#feeley1"><cite>SRFI 18</cite></a>.</p>
-	<p><i>Note:</i> The names defined in this specification are
-	  more in line with the naming conventions
-	  in <cite>R<sup>6</sup>RS</cite>.</p>
-      </dd>
-      <dt class="entry"><code>&amp;thread-already-terminated</code><span class="type">condition-type</span></dt>
-      <dt class="procedure"><code>(make-thread-already-terminated-error <var>obj</var></code>)</dt>
-      <dt class="procedure"><code>(thread-already-terminated-error? <var>obj</var></code>)</dt>
-      <dd>
-	<p>This condition type could be defined by</p>
-	<pre>(define-condition-type &amp;thread-already-terminated &amp;thread
-  make-thread-already-terminated-error thread-already-terminated-error?)</pre>
-	<p><code>Thread-already-terminated-error?</code>  is the same
-	  as <code>terminated-thread-exception?</code>
-	  in <a href="#feeley1"><cite>SRFI 18</cite></a>.</p>
-      </dd>
-      <dt class="entry"><code>&amp;thread-timeout</code><span class="type">condition-type</span></dt>
-      <dt class="procedure"><code>(make-thread-timeout-error <var>obj</var></code>)</dt>
-      <dt class="procedure"><code>(thread-timeout-error? <var>obj</var></code>)</dt>
-      <dd>
-	<p>This condition type could be defined by</p>
-	<pre>(define-condition-type &amp;thread-timeout &amp;thread
-  make-thread-timeout-error thread-timeout-error?)</pre>
-	<p><code>Thread-timeout-error?</code>  is the same
-	  as <code>join-timeout-exception?</code>
-	  in <a href="#feeley1"><cite>SRFI 18</cite></a>.</p>
-      </dd>
-      <dt class="entry"><code>&amp;thread-abandoned-mutex</code><span class="type">condition-type</span></dt>
-      <dt class="procedure"><code>(make-thread-abandoned-mutex-error <var>obj</var></code>)</dt>
-      <dt class="procedure"><code>(thread-abandoned-mutex-error? <var>obj</var></code>)</dt>
-      <dd>
-	<p>This condition type could be defined by</p>
-	<pre>(define-condition-type &amp;thread-abandoned-mutex &amp;thread
-  make-thread-abandoned-mutex-error thread-abandoned-mutex-error?)</pre>
-	<p><code>Thread-abandoned-mutex-error?</code>  is the same
-	  as <code>abandoned-mutex-exception?</code>
-	  in <a href="#feeley1"><cite>SRFI 18</cite></a>.</p>
-      </dd>
     </dl>
 
-    <h3>Prompt Tags</h3>
+    <h4>Prompt Tags</h4>
 
     <p>Continuation prompts are tagged with <dfn>prompt tags</dfn>,
       which are opaque values.  A distinguished prompt tag is
@@ -316,7 +279,7 @@
       </dd>
     </dl>
 
-    <h3>Continuation Prompts</h3>
+    <h4>Continuation Prompts</h4>
 
     <p>We identify a <dfn>continuation</dfn> with a sequence of active
       procedure calls, beginning with the most recent call.  A
@@ -396,6 +359,11 @@
     </dl>
 
     <h3>Continuations</h3>
+
+    <p>This section describes the <code>(srfi :XXX control
+	continuations)</code> library.  This library, in addition to the
+      procedures described here, also exports the condition types
+      described in the previous section on continuation prompts.</p>
 
     <p>Each <dfn>continuation (procedure)</dfn> is a procedure.</p>
 
@@ -586,6 +554,13 @@
     </dl>
 
     <h3>Continuation Marks</h3>
+
+    <p>This section describes the <code>(srfi :XXX control
+	continuation-marks)</code> library.  This library, in addition
+	to the procedures described here, also exports the condition
+	types described in the section on continuation prompts.</p>
+
+    <h4>Continuation Marks</h4>
 
     <p>Continuation frames can be annotated with <dfn>continuation
 	marks</dfn>.  Each continuation mark maps a key, which can be
@@ -786,7 +761,7 @@
       </dd>
     </dl>
 
-    <h3>Mark Keys</h3>
+    <h4>Mark Keys</h4>
 
     <p><dfn>Mark keys</dfn> can be used as opaque keys for
     continuation marks.</p>
@@ -812,6 +787,9 @@
     </dl>
 
     <h3>Parameter Objects</h3>
+
+    <p>This section describes the <code>(srfi :XXX control
+	parameters)</code> library.</p>
 
     <p>Each <dfn>parameter object</dfn> is a procedure.</p>
 
@@ -928,6 +906,9 @@
 
     <h3>Initial Continuations</h3>
 
+    <p>This section describes the <code>(srfi :XXX control
+	call-in-initial-continuation)</code> library.</p>
+
     <p>An <dfn>initial continuation</dfn> continuation is continuation
       that consists of a single continuation prompt tagged with the
       default prompt and with the default handler.  Moreover, a single
@@ -972,6 +953,9 @@
     </dl>
 
     <h3>Promises</h3>
+
+    <p>This section describes the <code>(srfi :XXX control
+	promises)</code> library.</p>
 
     <p><dfn>Promises</dfn> are objects that can be <dfn>forced</dfn>
       to deliver values or raise exceptions.</p>
@@ -1072,6 +1056,9 @@
       now equivalent to that of threads.</p>
 
     <h3>Exceptions</h3>
+
+    <p>This section describes the <code>(srfi :XXX control
+	exceptions)</code> library.</p>
 
     <p>Conceptionally, each continuation contains at least one
       otherwise inaccessible exception handler stack continuation
@@ -1222,6 +1209,112 @@
 
     <h3>Threads</h3>
 
+    <p>This section describes the <code>(srfi :XXX control
+	threads)</code> library.  The library, in addition to the
+      continuation types and syntax described here, also exports the
+      following procedures from <cite>SRFI 18</cite>:
+    </p>
+
+    <ul>
+      <li><code>current-thread</code></li>
+      <li><code>thread?</code></li>
+      <li><code>make-thread</code></li>
+      <li><code>thread-name</code></li>
+      <li><code>thread-specific</code></li>
+      <li><code>thread-specific-set!</code></li>
+      <li><code>thread-start!</code></li>
+      <li><code>thread-yield!</code></li>
+      <li><code>thread-sleep!</code></li>
+      <li><code>thread-terminate!</code></li>
+      <li><code>thread-join!</code></li>
+      <li><code>mutex?</code></li>
+      <li><code>make-mutex</code></li>
+      <li><code>mutex-name</code></li>
+      <li><code>mutex-specific</code></li>
+      <li><code>mutex-specific-set!</code></li>
+      <li><code>mutex-state</code></li>
+      <li><code>mutex-lock!</code></li>
+      <li><code>mutex-unlock!</code></li>
+      <li><code>condition-variable?</code></li>
+      <li><code>make-condition-variable</code></li>
+      <li><code>condition-variable-name</code></li>
+      <li><code>condition-specific</code></li>
+      <li><code>condition-specific-set!</code></li>
+      <li><code>condition-signal!</code></li>
+      <li><code>condition-broadcast!</code></li>
+      <li><code>current-time</code></li>
+      <li><code>time?</code></li>
+      <li><code>time-&gt;seconds</code></li>
+      <li><code>seconds-&gt;time</code></li>
+    </ul>
+
+    <h4>Conditions</h4>
+
+    <dl class="entries">
+      <dt class="entry"><code>&amp;thread</code><span class="type">condition-type</span></dt>
+      <dt class="procedure"><code>(make-thread-error <var>obj</var></code>)</dt>
+      <dt class="procedure"><code>(thread-error? <var>obj</var></code>)</dt>
+      <dd>
+	<p>This condition type could be defined by</p>
+	<pre>(define-condition-type &amp;thread &amp;error
+  make-thread-error thread-error?)</pre>
+	<p>This is a super type for a set of more specific thread errors.</p>
+      </dd>
+      <dt class="entry"><code>&amp;uncaught-exception</code><span class="type">condition-type</span></dt>
+      <dt class="procedure"><code>(make-uncaught-exception-error <var>obj</var></code>)</dt>
+      <dt class="procedure"><code>(uncaught-exception-error? <var>obj</var></code>)</dt>
+      <dt class="procedure"><code>(uncaught-exception-error-reason <var>condition</var></code>)</dt>
+      <dd>
+	<p>This condition type could be defined by</p>
+	<pre>(define-condition-type &amp;uncaught-exception &amp;thread
+  make-uncaught-exception-error uncaught-exception-error?
+  (reason uncaught-exception-reason))</pre>
+	<p><code>Uncaught-exception-error?</code>
+	  and <code>uncaught-exception-error-reason</code> are the
+	  same as <code>uncaught-exception</code>
+	  and <code>uncaught-exception-reason</code>
+	  in <a href="#feeley1"><cite>SRFI 18</cite></a>.</p>
+	<p><i>Note:</i> The names defined in this specification are
+	  more in line with the naming conventions
+	  in <cite>R<sup>6</sup>RS</cite>.</p>
+      </dd>
+      <dt class="entry"><code>&amp;thread-already-terminated</code><span class="type">condition-type</span></dt>
+      <dt class="procedure"><code>(make-thread-already-terminated-error <var>obj</var></code>)</dt>
+      <dt class="procedure"><code>(thread-already-terminated-error? <var>obj</var></code>)</dt>
+      <dd>
+	<p>This condition type could be defined by</p>
+	<pre>(define-condition-type &amp;thread-already-terminated &amp;thread
+  make-thread-already-terminated-error thread-already-terminated-error?)</pre>
+	<p><code>Thread-already-terminated-error?</code>  is the same
+	  as <code>terminated-thread-exception?</code>
+	  in <a href="#feeley1"><cite>SRFI 18</cite></a>.</p>
+      </dd>
+      <dt class="entry"><code>&amp;thread-timeout</code><span class="type">condition-type</span></dt>
+      <dt class="procedure"><code>(make-thread-timeout-error <var>obj</var></code>)</dt>
+      <dt class="procedure"><code>(thread-timeout-error? <var>obj</var></code>)</dt>
+      <dd>
+	<p>This condition type could be defined by</p>
+	<pre>(define-condition-type &amp;thread-timeout &amp;thread
+  make-thread-timeout-error thread-timeout-error?)</pre>
+	<p><code>Thread-timeout-error?</code>  is the same
+	  as <code>join-timeout-exception?</code>
+	  in <a href="#feeley1"><cite>SRFI 18</cite></a>.</p>
+      </dd>
+      <dt class="entry"><code>&amp;thread-abandoned-mutex</code><span class="type">condition-type</span></dt>
+      <dt class="procedure"><code>(make-thread-abandoned-mutex-error <var>obj</var></code>)</dt>
+      <dt class="procedure"><code>(thread-abandoned-mutex-error? <var>obj</var></code>)</dt>
+      <dd>
+	<p>This condition type could be defined by</p>
+	<pre>(define-condition-type &amp;thread-abandoned-mutex &amp;thread
+  make-thread-abandoned-mutex-error thread-abandoned-mutex-error?)</pre>
+	<p><code>Thread-abandoned-mutex-error?</code>  is the same
+	  as <code>abandoned-mutex-exception?</code>
+	  in <a href="#feeley1"><cite>SRFI 18</cite></a>.</p>
+      </dd>
+    </dl>
+
+    <h4>Threads</h4>
+
     <dl class="entries">
       <dt class="entry"><code>(thread <span class="token">body</span>)</code><span class="type">syntax</span></dt>
       <dd>
@@ -1243,7 +1336,7 @@
 	  the initial continuation, the values are stored in
 	  the <code>end-result</code> of the thread before the thread
 	  is finally terminated.</p>
-	<p>This extends the semantics of <code>raise</code></p>.
+	<p>This extends the semantics of <code>raise</code>.</p>
 	<p><i>Note:</i> This also defines the initial continuation of
 	  a thread created by invoking the <code>make-thread</code>
 	  procedure in <cite>SRFI 18</cite>.</p>
@@ -1414,7 +1507,12 @@
 	  Volume 19, Supplement S1, August 2009,
 	  pp. 1-301. DOI: <a href="https://doi.org/10.1017/S0956796809990074">10.1017/S0956796809990074</a>.</p>
       </li>
-      <li id="kawai">
+      <li id="van-horn">
+	<p>David van
+	Horn: <a href="https://srfi.schemers.org/srfi-97/srfi-97.html"><cite>SRFI
+	97: SRFI Libraries</cite></a>.</p>
+      </li>
+      <li id="van-tonder">
 	<p>André van Tonder: <a href="https://srfi.schemers.org/srfi-45/srfi-45.html"><cite>SRFI
 	45: Primitives for Expressing Iterative Lazy Algorithms</cite></a>.</p>
       </li>
