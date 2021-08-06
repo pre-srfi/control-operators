@@ -89,15 +89,17 @@
 
     <h2 id="abstract">Abstract</h2>
 
-    <p>This SRFI defines a rich set of control operators, which are
-      also available in <a href="#racket"><cite>Racket</cite></a>, for
-      the Scheme programming language.  This set includes the
-      venerable <code>call/cc</code>.</p>
+    <p>This SRFI defines a rich set of control operators for the
+      Scheme programming language, including the
+      venerable <code>call/cc</code>.  The set of operators was highly
+      influenced by the control operators provided
+      by <a href="#racket"><cite>Racket</cite></a>.
 
-    <p>Prompts delimit continuations,
-      and all continuations are conceptually delimited, at the latest
-      by the default prompt at the start of each thread.  Instead, continuations
-      are divided into composable and non-composable continuations.</p>
+    <p>Continuations can be delimited by continuation prompts, and all
+      continuations become delimited continuations, at the latest by
+      the default prompt at the start of each thread.  Moreover,
+      continuations are divided into composable and non-composable
+      continuations, which can be captured and reinstated.</p>
 
     <p>To investigate continuations, this SRFI supports continuation
       marks and offers operators to set and retrieve them.</p>
@@ -183,6 +185,28 @@
     <h3>Parameter Objects</h3>
 
     <h3>Promises</h3>
+
+    <h3>Relation to Other Standards</h3>
+
+    <p>Some of the procedures and syntax defined in this specification
+      have the same names as procedures and syntax
+      of <cite>R<sup>6</sup>RS</cite>
+      and <cite>R<sup>7</sup>RS</cite>.  In case a definition of such
+      a procedure or syntax here does not conflict with the
+      corresponding definition in a Scheme report, the procedure or
+      syntax should be the same whether exported by the relevant
+      standard libraries or one of the libraries described below.</p>
+
+    <h3>Relation to Other SRFIs</h3>
+
+    <p>This SRFI supersedes <a href="#kelsey"><cite>SRFI
+	  34</cite></a>, <a href="#feeley2"><cite>SRFI
+	  39</cite></a>, <a href="#nieper1"><cite>SRFI
+	  154</cite></a>, <a href="#nieper2"><cite>SRFI
+	  155</cite></a>, and <a href="#nieper3"><cite>SRFI
+	  157</cite></a>.</p>
+
+    <p><a href="#feeley1"><cite>SRFI 18</cite></a> is extended.</p>
 
     <h3>Implementation</h3>
 
@@ -599,7 +623,7 @@
       <dd>
 	<p><i>Syntax:</i>
 	  <code><span class="token">Key-expr</span></code>, <code><span class="token">val-expr</span></code>,
-	  and <code><span class="token">expression</span></code> must be expressions.</p>
+	  and <code><span class="token">expression</span></code> are expressions.</p>
 	<p><i>Semantics:</i>
 	  <code>Key-expr</code> and <code>val-expr</code> are
 	  evaluated in an unspecified order to obtain a key and a
@@ -619,8 +643,8 @@
       <dd>
 	<p><i>Syntax:</i>
 	  <code>The <span class="token">key-expr</span></code>s and
-	  the <code><span class="token">val-expr</span></code>s must
-	  be expressions, and <code><span class="token">body</span></code> must
+	  the <code><span class="token">val-expr</span></code>s are
+	  be expressions, and <code><span class="token">body</span></code> is
 	  be a body.</p>
 	<p><i>Semantics:</i> The <code>key-expr</code>s and
 	  the <code>val-expr</code>s are evaluated in an unspecified
@@ -666,9 +690,9 @@
 	  continuation prompt <code>prompt-tag</code>.</p>
 	<p>If no continuation prompt tagged
 	  with <code><var>prompt-tag</var></code> is available
-	  in <code><var>cont</var></code>, the
-	  continuation <code><var>cont</var></code> must be delimited
-	  by <code><var>prompt-tag</var></code> or an exception with
+	  in <code><var>cont</var></code> and the
+	  continuation <code><var>cont</var></code> is not delimited
+	  by <code><var>prompt-tag</var></code>, an exception with
 	  condition type <code>&amp;continuation</code> is raised.</p>
       </dd>
 
@@ -857,8 +881,8 @@
       <dd>
 	<p><i>Syntax:</i>
 	  The <code><span class="token">param-expr</span></code>s and
-	  the <code><span class="token">expression</span></code>s must be
-	  expressions, and <code><span class="token">body</span></code> must be
+	  the <code><span class="token">expression</span></code>s are
+	  expressions, and <code><span class="token">body</span></code> is
 	  a body.</p>
 	<p><i>Semantics:</i> Evaluates
 	  the <code><span class="token">param-expr</span></code>s
@@ -988,7 +1012,7 @@
       <dt class="syntax"><code>(delay <span class="token">body</span>)</code></dt>
       <dd>
 	<p><i>Syntax:</i>
-	  <code><span class="token">Body</span></code> must be a body.</p>
+	  <code><span class="token">Body</span></code> is a body.</p>
 	<p><i>Semantics:</i> Evaluates to a promise that behaves as
 	  follows when forced in a continuation: If the promise
 	  already has delivered values, the same values are delivered
@@ -1111,7 +1135,9 @@
     <dl class="entries">
       <dt class="procedure"><code>(with-exception-handler <var>handler</var> <var>thunk</var>)</code></dt>
       <dd>
-	<p><code><var>Handler</var></code> must a procedure and and should accept one argument.</p>
+	<p><code>It is an assertion violation
+	if <var>handler</var></code> is not a procedure and does not
+	accept one argument.</p>
 	<p>Installs <code><var>handler</var></code> in the
 	  continuation to the call
 	  to <code>with-exception-handler</code>,
@@ -1195,7 +1221,8 @@
 	<p><i>Syntax:</i> Each <code><span class="token">cond
 	  clause</span></code> is as in the specification
 	  of <code><span class="token">cond</span></code>.  <code><span class="token">Variable</span></code>
-	  must be an identifier and <code><span class="token">body</span></code> a body.</p>
+	  is an identifier
+	  and <code><span class="token">body</span></code> a body.</p>
 	<p><i>Semantics:</i> Installs an exception handler as
 	  described below in the continuation of
 	  the <code>guard</code> expression and
@@ -1343,7 +1370,7 @@
       <dt class="entry"><code>(thread <span class="token">body</span>)</code><span class="type">syntax</span></dt>
       <dd>
 	<p><i>Syntax:</i>
-	  <code><span class="token">Body</span></code> must be a body.</p>
+	  <code><span class="token">Body</span></code> is a body.</p>
 	<p><i>Semantics:</i> Operationally equivalent to
 	  evaluating <code>(make-thread (lambda
 	  () <span class="token">body</span>))</code>.  The initial
@@ -1432,11 +1459,11 @@
 	  <span class="token">body</span>] ...)</code></dt>
       <dd>
 	<p><i>Syntax:</i>
-	  <code><span class="token">Expression</span></code> must be
-	  an
-	  expression, the <code><span class="token">formals</span></code>s
-	  must be formal parameter lists
-	  and the <code><span class="token">body</span></code>s must be
+	  <code><span class="token">Expression</span></code> is an
+	  expression,
+	  the <code><span class="token">formals</span></code>s are a
+	  formal parameter list and
+	  the <code><span class="token">body</span></code>s are
 	  bodies.</p>
 
 	<p><i>Semantics:</i>
@@ -1511,6 +1538,26 @@
 	<p>Shiro Kawai, John Cowan, Thomas
 	Gilray: <a href="https://srfi.schemers.org/srfi-158/srfi-158.html"><cite>SRFI
 	158: Generators and Accumulators</cite></a>.</p>
+      </li>
+      <li id="kelsey">
+	<p>Richard Kelsey, Michael Sperber:
+	  <a href="https://srfi.schemers.org/srfi-34/srfi-34.html"><cite>SRFI
+	      34: Exception Handling for Programs</cite></a>.</p>
+      </li>
+      <li id="nieper1">
+	<p>Marc Nieper-Wißkirchen:
+	  <a href="https://srfi.schemers.org/srfi-154/srfi-154.html"><cite>SRFI
+	      154: First-class dynamic extents</cite></a>.</p>
+      </li>
+      <li id="nieper2">
+	<p>Marc Nieper-Wißkirchen:
+	  <a href="https://srfi.schemers.org/srfi-155/srfi-155.html"><cite>SRFI
+	      155: Promises</cite></a>.</p>
+      </li>
+      <li id="nieper3">
+	<p>Marc Nieper-Wißkirchen:
+	  <a href="https://srfi.schemers.org/srfi-154/srfi-154.html"><cite>SRFI
+	      157: Continuation marks</cite></a>.</p>
       </li>
       <li id="r7rs">
 	<p><a href="https://github.com/johnwcowan/r7rs-work/blob/master/R7RSHomePage.md">R7RS Home Page</a>.</p>
