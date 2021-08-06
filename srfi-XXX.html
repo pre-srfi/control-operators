@@ -252,9 +252,27 @@
 
     <h4>Promises</h4>
 
-    <p>
+    <p>A naive implementation of <code>delay</code> and <code>force</code> does
+      not support iterative lazy algorithms as was observed, for example,
+      in <a href="van-tonder"><cite>SRFI 45</cite></a>.  That SRFI
+      and <cite>R<sup>7</sup>RS</cite> solve the problem by providing another
+      primitive, <code>delay-force</code> (called <code>lazy</code>
+      in <cite>SRFI 45</cite>).  When continuation marks are available,
+      however, such an irksome primitive is not needed,
+      see <a href="nieper2">SRFI 155</a>.  Consequently, this specification
+      defines <dfn>promises</dfn> in a way that makes <code>delay-force</code>
+      superfluous.</p>
 
-    </p>
+    <p>Moreover, this specification amends <cite>R<sup>7</sup>RS</cite> in a
+      way that defines the continuation in which the values of promises are
+      forced in such a way that it has the same semantics as executing a
+      thread.  This makes the overall system pleasantly coherent.  The sample
+      implementation shows, how everything can be implemented efficiently.</p>
+
+    <p>Finally, promises as defined in this specification can deliver multiple
+      values when forced, an extension too naturally to ignore it, and it is
+      clearly specified what happens when an exception is raised during the
+      forcing of a promise.</p>
 
     <h3>Relation to Other Standards</h3>
 
@@ -272,8 +290,8 @@
     <p>This SRFI supersedes <a href="#kelsey2"><cite>SRFI
 	  34</cite></a>, <a href="#feeley2"><cite>SRFI
 	  39</cite></a>, <a href="#nieper1"><cite>SRFI
-	  154</cite></a>, <a href="#nieper2"><cite>SRFI
-	  155</cite></a>, and <a href="#nieper3"><cite>SRFI
+	  154</cite></a>, <cite>SRFI
+	  155</cite>, and <a href="#nieper3"><cite>SRFI
 	  157</cite></a>.</p>
 
     <p><cite>SRFI 18</cite> is extended.</p>
@@ -1134,7 +1152,7 @@
 	  to <code>force</code> in tail contexts makes the
 	  extra <code>delay-force</code> syntax
 	  of <cite>R<sup>7</sup>RS</cite> (see
-	  also <a href="van-tonder"><cite>SRFI 45</cite></a>, where it
+	  also <cite>SRFI 45</cite>, where it
 	  is called <code>lazy</code>) unnecessary.</p>
       </dd>
 
