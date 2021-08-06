@@ -844,6 +844,51 @@
       would be incompatible with the tail context guarantee of
       the <code>parameterize</code> form.</p>
 
+    <h3>Initial Continuations</h3>
+
+    <p>An <dfn>initial continuation</dfn> continuation is continuation
+      that consists of a single continuation prompt tagged with the
+      default prompt and with the default handler.  Moreover, a single
+      initial exception handler is installed in an initial
+      continuation that, when invoked on a <code>&amp;serious</code>
+      condition or on a non-condition object aborts to the most recent
+      continuation prompt tagged with the default prompt tag and calls
+      its handler with a thunk that, when evaluated raises an
+      exception whose condition is the object.  When invoked on a
+      non-<code>&amp;serious</code> condition object, the initial
+      handler returns with unspecified values instead.</p>
+
+    <p>Executing a top-level program starts with the initial
+      continuation.  When values are delivered in the initial
+      continuation, the program exits normally.  When an exception is
+      raised in the dynamic extent of the handler of the initial
+      continuation prompt, the program may exit or may provide a
+      choice of other options.  It is expected that the initial
+      exception handler reports than an exception has been raised, and
+      displays information about the condition object that was
+      provided.</p>
+
+    <p>This extends the semantics of <code>raise</code></p>.
+
+    <dl class="entries">
+      <dt class="entry"><code>(call-in-initial-continuation <var>thunk</var>)</code><span class="type">procedure</span></dt>
+      <dd>
+	<p>Calls <code><var>thunk</var></code> in an initial
+	  continuation.  The parameterization of the initial
+	  continuation is the same as the parameterization of the
+	  continuation of the call
+	  to <code>call-in-initial-continuation</code>.  When values
+	  are delivered to the initial continuation, the values are
+	  delivered to the continuation of the call
+	  to <code>call-in-initial-continuation</code>.  When an
+	  exception is raised in the dynamic extent of the handler of the continuation
+	  prompt of the initial continuation, the exception is raised
+	  in the continuation of the call
+	  to <code>call-in-initial-continuation</code>.</p>
+	<p>This extends the semantics of <code>raise</code></p>.
+      </dd>
+    </dl>
+
     <h3>Promises</h3>
 
     <p><dfn>Promises</dfn> are objects that can be <dfn>forced</dfn>
@@ -858,29 +903,25 @@
 	  follows when forced in a continuation: If the promise
 	  already has delivered values, the same values are delivered
 	  again, and if the promise already has raised an exception,
-	  the same exception is raised again in the contination.
+	  the same exception is raised again in the continuation.
 	  Otherwise, <code><span class="token">body</span></code> is
-	  evaluated in a continuation consisting of a single
-	  continuation prompt tagged with the default prompt tag and
-	  with the default handler.  The parameterization of the
-	  initial continuation is the same as the parameterization of
-	  the continuation of the original <code>delay</code>
-	  expression.  Moreover, an initial exception handler is
-	  installed in the initial continuation.
-
-	  When values are delivered to the initial continuation and
-	  the promise still hasn't delivered values or has raised an
-	  exception, the values are delivered to the continuation in
-	  which the promise was forced.  Otherwise, the already
-	  delivered values are delivered again, or the already raised
-	  exception is raised again.
-
-	  When the initial exception handler is invoked on an object
-	  and the promise still hasn't delivered values or has raised
-	  an exception, the object is raised in the continuation in
-	  which the promise was forced.  Otherwiese, the already
-	  delivered values are delivered again, or the already raised
-	  exception is raised again.</p>
+	  evaluated in an initial continuation.  The parameterization
+	  of the initial continuation is the same as the
+	  parameterization of the continuation of the
+	  original <code>delay</code> expression.  When values are
+	  delivered to the initial continuation and the promise still
+	  hasn't delivered values or has raised an exception, the
+	  values are delivered to the continuation in which the
+	  promise was forced.  Otherwise, the already delivered values
+	  are delivered again, or the already raised exception is
+	  raised again in the forcing continuation.  When an exception
+	  is raised in the dynamic extent of the handler of the
+	  continuation prompt of the initial continuation and the
+	  promise still hasn't delivered values or has raised an
+	  exception, the object is raised in the continuation in which
+	  the promise was forced.  Otherwise, the already delivered
+	  values are delivered again, or the already raised exception
+	  is raised again in the forcing continuation.</p>
 
 	<p>If a call to <code>force</code> occurs in tail context
 	  during the evaluation
@@ -952,7 +993,7 @@
 
     <p>Conceptionally, each continuation contains at least one
       otherwise inaccessible exception handler stack continuation
-      mark, whose value is a (non-empty) list of exception handlers,
+      mark, whose value is a list of exception handlers,
       which are one-argument procedures.  The <dfn>exception handler
       stack</dfn> of a continuation is the vale of the most recent
       exception handler stack continuation mark in the continuation.
@@ -1012,6 +1053,17 @@
 	  condition type <code>&amp;non-continuable</code> is raised
 	  in the continuation of the call to <code>raise</code>.
 	</p>
+	<p>If there is no current exception handler because the
+	  current exception handler stack is empty, the current
+	  continuation is instead aborted to the most recent
+	  continuation prompt tagged with the default continuation
+	  prompt and its handler invoked on a thunk that, when called,
+	  raises <code><var>obj</var></code>.</p>
+	<p><i>Note:</i> The current exception handler stack becomes
+	  empty if the initial exception handler returns after having
+	  been invoked on a non-<code>&amp;serious</code> condition,
+	  and causing a <code>&amp;non-continuable</code> condition to
+	  be raised.</p>
       </dd>
       <dt class="procedure"><code>(raise-continuable <var>obj</var>)</code></dt>
       <dd>
@@ -1022,6 +1074,12 @@
 	  current handler stack with the first element removed.  The
 	  previously first element is then invoked
 	  on <code><var>obj</var></code> and its values are returned.</p>
+	<p>If there is no current exception handler because the
+	  current exception handler stack is empty, the current
+	  continuation is instead aborted to the most recent
+	  continuation prompt tagged with the default continuation
+	  prompt and its handler invoked on a thunk that, when called,
+	  raises <code><var>obj</var></code>.</p>
 	<p>If a call to <code>raise-continuable</code> occurs in a
 	  tail context, the call to the current exception handler is
 	  also in a tail context.</p>
@@ -1090,17 +1148,12 @@
 	<p><i>Semantics:</i> Operationally equivalent to
 	  evaluating <code>(make-thread (lambda
 	  () <span class="token">body</span>))</code>.  The initial
-	  continuation consists of a single continuation prompt tagged
-	  with the default prompt and with the default handler.  The
-	  parameterization of the initial continuation is the same as
-	  the parameterization of the continuation of
-	  the <code>thread</code> expression.  Moreover, an initial
-	  exception handler is installed in the initial continuation
-	  that aborts to the most recent continuation prompt tagged
-	  with the default prompt tag and calls its handler with a
-	  thunk that, when evaluated, raises the exception.  When an
-	  exception is raised in the dynamic extent of the handler of
-	  the initial continuation prompts, a condition with
+	  continuation is an initial continuation as defined above.
+	  The parameterization of the initial continuation is the same
+	  as the parameterization of the continuation of
+	  the <code>thread</code> expression.  When an exception is
+	  raised in the dynamic extent of the handler of the initial
+	  continuation prompts, a condition with
 	  type <code>&amp;uncaught-exception</code> and the raised
 	  object as its reason is stored in
 	  the <code>end-exception</code> of the thread before the
@@ -1108,6 +1161,7 @@
 	  the initial continuation, the values are stored in
 	  the <code>end-result</code> of the thread before the thread
 	  is finally terminated.</p>
+	<p>This extends the semantics of <code>raise</code></p>.
 	<p><i>Note:</i> This also defines the initial continuation of
 	  a thread created by invoking the <code>make-thread</code>
 	  procedure in <cite>SRFI 18</cite>.</p>

@@ -375,6 +375,13 @@
 	   (lambda ()
 	     (raise-continuable 991))))
 
+;;; Initial Continuations
+
+(test #f (with-continuation-mark 'key 'mark
+	   (call-in-initial-continuation
+	    (lambda ()
+	      (continuation-mark-set-first #f 'key)))))
+
 ;;; Threads
 
 (test 98 (let ([t (thread-start!

@@ -45,6 +45,7 @@
 	  with-input-from-file with-output-to-file
 	  read-char peek-char read
 	  write-char newline display write
+	  call-in-initial-continuation
 	  current-thread thread? make-thread thread-name thread-specific
 	  thread-specific-set! thread-start! thread-yield!
 	  thread-terminate! thread-join!
@@ -428,11 +429,16 @@
 					handler-stack)
 	 (make-marks parameterization (list
 				       (lambda (exc)
-					 (abort-current-continuation (default-continuation-prompt-tag)
-					   (lambda ()
-					     (raise exc))))))
+					 (unless (non-serious-condition? exc)
+					   (abort-current-continuation (default-continuation-prompt-tag)
+					     (lambda ()
+					       (raise exc)))))))
 	 '()
 	 thread))))
+
+  (define non-serious-condition?
+    (lambda (obj)
+      (and (condition? obj) (not (serious-condition? obj)))))
 
   (define run
     (lambda (thunk)
@@ -489,13 +495,17 @@
 	   (unless (symbol=? (thread-current-state thread) (thread-state terminated))
 	     (thread-end-exception-set! thread (make-uncaught-exception con))))))))
 
-  ;; XXX: SRFI 18 says that the handler should be called tail-called
+  ;; SRFI 18 says that the handler should be called tail-called
   ;; by (some) primitives.  This doesn't make much sense with the
   ;; R[67]RS semantics.  In fact, SRFI 18's `raise' seems to be
   ;; R[67]RS's `raise-continuable'.
   (define %raise
     (lambda (con)
       (let f ([con con])
+	(when (null? (current-exception-handlers))
+	  (abort-current-continuation (default-continuation-prompt-tag)
+	    (lambda ()
+	      (raise con))))
 	(let ([handler (current-exception-handler)])
 	  (with-continuation-mark (handler-stack-continuation-mark-key)
 	      (cdr (current-exception-handlers))
@@ -1474,7 +1484,7 @@
     (lambda obj*
       (%make-promise #t (lambda () (apply values obj*)))))
 
-  (define call-in-delimited-continuation
+  (define call-in-initial-continuation
     (lambda (thunk)
       (let* ([saved-env (%current-dynamic-environment)])
 	(let ([thunk
@@ -1509,7 +1519,7 @@
 			   [thunk
 			    (guard (exc [else (lambda () (raise exc))])
 			      (thunkify
-			       (call-in-delimited-continuation
+			       (call-in-initial-continuation
 				(lambda ()
 				  (with-continuation-mark (force-continuation-mark-key)
 				      (lambda (p) (set! q p))
@@ -1537,8 +1547,7 @@
     (syntax-rules ()
       [(thunkify expr)
        (let-values ([val* expr])
-	 (lambda () (apply values val*)))]))
-  )
+	 (lambda () (apply values val*)))])))
 
 ;; Local Variables:
 ;; mode: scheme
