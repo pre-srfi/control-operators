@@ -2,8 +2,6 @@
 
 * Document guard and with-exception-handler.
 
-* Remove the rec lib in case it isn't needed.
-
 * Revise SRFI 18 condition names to make them more in line with R6RS?
 
 * Document call-in-delimited-continuation.
