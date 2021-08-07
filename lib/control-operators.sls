@@ -589,12 +589,12 @@
       [(thunk)
        (call-with-continuation-prompt thunk (default-continuation-prompt-tag))]
       [(thunk prompt-tag)
-       (call-with-continuation-prompt thunk prompt-tag
-				      (make-default-handler prompt-tag))]
+       (call-with-continuation-prompt thunk prompt-tag #f)]
       [(thunk prompt-tag handler)
-       (assert (continuation-prompt-tag? prompt-tag))
-       (assert (procedure? handler))
-       (call-in-empty-marks prompt-tag handler thunk)]))
+       (let ([handler (or handler (make-default-handler prompt-tag))])
+	 (assert (continuation-prompt-tag? prompt-tag))
+	 (assert (procedure? handler))
+	 (call-in-empty-marks prompt-tag handler thunk))]))
 
   (define make-default-handler
     (lambda (prompt-tag)

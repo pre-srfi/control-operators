@@ -81,6 +81,17 @@
       pre.example
       {
 	  margin-left: 1em;
+	  margin-right: 1em;
+      }
+      pre.example > span.result
+      {
+	  float: right;
+      }
+      pre.example > span.result::before
+      {
+	  padding-left: 1em;
+	  padding-right: 1em;
+	  content: "⟹"
       }
       </style>
   </head>
@@ -436,6 +447,12 @@
       </dd>
     </dl>
 
+    <pre class="example">(continuation-prompt-tag? (default-continuation-prompt-tag))<span class="result">#t</span>
+(eq? (default-continuation-prompt-tag) (default-continuation-prompt-tag))<span class="result">#t</span>
+(continuation-prompt-tag? (make-continuation-prompt-tag))<span class="result">#t</span>
+(equal? (make-continuation-prompt-tag) (default-continuation-prompt-tag))<span class="result">#f</span>
+(equal? (make-continuation-prompt-tag) (make-continuation-prompt-tag))<span class="result">#f</span></pre>
+
     <h4>Continuation Prompts</h4>
 
     <p>We identify a <dfn>continuation</dfn> with a sequence of active
@@ -487,7 +504,7 @@
 	  context.</p>
       </dd>
 
-      <dt><code>(abort-current-continuation <var>prompt-tag</var> <var>obj<var>
+      <dt><code>(abort-current-continuation <var>prompt-tag</var> <var>obj</var>
       &hellip;)</code></dt>
       <dd>
 	<p>The <code>abort-current-continuation</code> procedure
@@ -515,11 +532,27 @@
       </dd>
     </dl>
 
-    <pre class="example">(continuation-prompt-tag? (default-continuation-prompt-tag))<span class="result">#t</span>
-(eq? (default-continuation-prompt-tag) (default-continuation-prompt-tag))<span class="result">#t</span>
-(continuation-prompt-tag? (make-continuation-prompt-tag))<span class="result">#t</span>
-(equal? (make-continuation-prompt-tag) (default-continuation-prompt-tag))<span class="result">#f</span>
-(equal? (make-continuation-prompt-tag) (make-continuation-prompt-tag))<span class="result">#f</span></pre>
+    <pre class="example">(let ([tag (make-continuation-prompt-tag)])
+  (call-with-continuation-prompt
+    (lambda ()
+      (+ 1
+         (abort-current-continuation tag 'foo 'bar)
+         2))
+     tag
+     list))<span class="result">(foo bar)</span></pre>
+
+    <p>The following example demonstrates that the prompt is
+      reinstalled by the default handler.</p>
+
+    <pre class="example">(let ([tag (make-continuation-prompt-tag)])
+  (call-with-continuation-prompt
+   (lambda ()
+     (abort-current-continuation tag
+       (lambda ()
+         (abort-current-continuation tag
+           (lambda ()
+             27)))))
+   tag #f))<span class="result">27</span></pre>
 
     <h3>Continuations</h3>
 
@@ -578,7 +611,27 @@
 	  the <code>call-with-current-procedure</code> of earlier
 	  Scheme reports.</p>
       </dd>
+    </dl>
 
+    <p>The following example shows how continuation prompts delimit
+      the captured continuation and the continuation to be replaced.</p>
+
+    <pre class="example">(let ([tag (make-continuation-prompt-tag)])
+  (* 2
+   (call-with-continuation-prompt
+    (lambda ()
+      (* 3
+         (call/cc
+          (lambda (k)
+            (* 5
+               (call-with-continuation-prompt
+                (lambda ()
+                  (* 7 (k 11)))
+                tag)))
+          tag)))
+    tag)))<span class="result">990</span></pre>
+
+    <dl class="entries">
       <dt class="procedure"><code>(call-with-composable-continuation <var>proc</var>)</code></dt>
       <dt class="procedure"><code>(call-with-composable-continuation <var>proc</var> <var>prompt-tag</var>)</code></dt>
       <dd>
@@ -619,13 +672,83 @@
 	  usually return values to the continuation in which they are
 	  called, while the former never do.</p>
       </dd>
+    </dl>
 
+    <p>This concept of composable continuations together with the
+      facility to install and abort to continuation prompts is rich
+      enough to support the known delimited control operators.  For
+      example, the control operators
+      <code>reset</code> and <code>shift</code>
+      from <a href="#danvy"><cite>Abstracting Control</cite></a> can be implemented as
+      follows:</p>
+
+    <pre class="example">(define-syntax reset
+  (syntax-rules ()
+    [(reset e1 e2 ...)
+     (call-with-continuation-prompt
+      (lambda ()
+        e1 e2 ...))]))
+
+(define-syntax shift
+  (syntax-rules ()
+    [(shift k e1 e2 ...)
+     (call-with-composable-continuation
+       (lambda (k)
+         (abort-current-continuation (default-continuation-prompt-tag)
+           (lambda ()
+             e1 e2 ...))))]))
+
+(+ 1 (reset 3))<span class="result"> 4</span>
+(+ 1 (reset (* 2 (shift k 4))))<span class="result"> 5</span>
+(+ 1 (reset (* 2 (shift k (k 4)))))<span class="result"> 9</span>
+(+ 1 (reset (* 2 (shift k (k (k 4))))))<span class="result">17</span>
+(+ 1 (reset (* 2 (shift k1 (* 3 (shift k2 (k1 (k2 4))))))))<span class="result">25</span></pre>
+
+    <p>Another possible pair of control operators is made
+    by <code>prompt</code> and <code>control</code>.  The difference
+    with <code>reset</code>/<code>shift</code> is
+      that <code>control</code> does not reinstate the prompt.</p>
+
+    <pre class="example">(define-syntax prompt
+  (syntax-rules ()
+    [(prompt e1 e2 ...)
+     (call-with-continuation-prompt
+      (lambda ()
+	e1 e2 ...)
+      (default-continuation-prompt-tag)
+      (lambda (thunk)
+	(thunk)))]))
+
+(define-syntax control
+  (syntax-rules ()
+    [(control k e1 e2 ...)
+     (call-with-composable-continuation
+      (lambda (k)
+	(abort-current-continuation (default-continuation-prompt-tag)
+	  (lambda ()
+	    e1 e2 ...))))]))
+
+(prompt (+ 2 (control k (k 5))))<span class="result"> 7</span>
+(prompt (+ 2 (control k 5)))<span class="result"> 5</span>
+(prompt (+ 5 (prompt (+ 2 (control k1 (+ 1 (control k2 (k2 6))))))))<span class="result">12</span>
+(prompt (+ 5 (prompt (+ 2 (control k1 (+ 1 (control k2 (k1 6))))))))<span class="result"> 8</span>
+(prompt
+  (+ 12 (prompt (+ 5 (prompt (+ 2 (control k1 (control k2 (control k3 (k3 6))))))))))
+<span class="result">18</span>
+</pre>
+
+    <dl class="entries">
       <dt class="procedure"><code>(continuation? <var>obj</var>)</code></dt>
       <dd>
 	<p>Returns <code>#t</code> if <code><var>obj</var></code> is a
 	  continuation procedure, and <code>#f</code> otherwise.</p>
       </dd>
+    </dl>
 
+    <pre class="example">(continuation? (call/cc values))<span class="result">#t</span>
+(continuation? (call-with-composable-continuation values))<span class="result">#t</span></pre>
+
+    <dl class="entries">
       <dt class="procedure"><code>(call-in-continuation <var>cont</var> <var>thunk</var>)</code></dt>
       <dd>
 	<p>
@@ -635,7 +758,70 @@
 	  continuation, the procedure <code><var>thunk</var></code> is
 	  called with no arguments in this continuation.</p>
       </dd>
+    </dl>
 
+    <p><code>Call-in-continuation</code> can be used to implement
+      the <code>guard</code> syntax concisely:</p>
+
+    <pre class="example">(define-syntax/who guard
+  (lambda (stx)
+    (syntax-case stx ()
+      [(_ (id c1 c2 ...) e1 e2 ...)
+       (identifier? #'id)
+       #`(call-with-current-continuation
+	  (lambda (guard-k)
+	    (with-exception-handler
+		(lambda (c)
+		  (call-with-current-continuation
+		   (lambda (handler-k)
+		     (call-in-continuation guard-k
+		       (lambda ()
+			 (let ([id c])
+			   #,(let f ([c1 #'c1] [c2* #'(c2 ...)])
+			       (syntax-case c2* ()
+				 [()
+				  (with-syntax
+				      ([rest
+					#'(call-in-continuation handler-k
+					    (lambda ()
+					      (raise-continuable c)))])
+				    (syntax-case c1 (else =>)
+				      [(else e1 e2 ...)
+				       #'(begin e1 e2 ...)]
+				      [(e0) #'e0]
+				      [(e0 => e1)
+				       #'(let ([t e0]) (if t (e1 t) rest))]
+				      [(e0 e1 e2 ...)
+				       #'(if e0
+					     (begin e1 e2 ...)
+					     rest)]))]
+				 [(c2 c3 ...)
+				  (with-syntax ([rest (f #'c2 #'(c3 ...))])
+				    (syntax-case c1 (=>)
+				      [(e0) #'(let ([t e0]) (if t t rest))]
+				      [(e0 => e1)
+				       #'(let ([t e0]) (if t (e1 t) rest))]
+				      [(e0 e1 e2 ...)
+				       #'(if e0
+					     (begin e1 e2 ...)
+					     rest)]))]))))))))
+		(lambda ()
+		  e1 e2 ...))))]
+      [_
+       (syntax-violation who "invalid syntax" stx)])))</pre>
+
+    <p>Invoking a continuation <code>k</code> on
+      values <code><var>obj</var></code> &hellip; can be defined
+      in terms of <code>call-in-continuation</code>:</p>
+
+    <pre class="example">(let ([<var>tmp</var> <var>obj</var>] &hellip;)
+  (call-in-continuation k (lambda () (values <var>tmp</var> &hellip;))))<span class="result">(k <var>obj</var> &hellip;)</span></pre>
+
+    <p>On the other hand, it is not possible to
+      define <code>call-in-continuation</code> in terms of invoking a
+      continuation, so the former is the more primitive notion.</p>
+
+    <dl class="entries">
       <dt class="procedure"><code>(call-with-continuation-barrier <var>thunk</var>)</code></dt>
       <dd>
 	<p>The <code>call-with-continuation-prompt</code> procedure
@@ -1624,6 +1810,11 @@
 
     <ol class="bibliography">
       <li id="chezscheme"><p><a href="https://cisco.github.io/ChezScheme/">Chez Scheme</a>.</p></li>
+      <li id="danvy"><p>Olivier Danvy, Andrzej
+      Filinski: <cite>Abstracting control</cite>, LFP '90: Proceedings
+      of the 1990 ACM conference on LISP and functional programming,
+      May 1990,
+      pp. 151–160. DOI: <a href="https://doi.org/10.1145/91556.91622">10.1145/91556.91622</a>.</p></li>
       <li id="dybvig">
 	<p>R. Kent Dybvig, Simon Peyton Jones, and Amr
 	  Sabry: <cite>A monadic framework for delimited
