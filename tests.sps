@@ -541,6 +541,14 @@
 		  '()))))
 	(lazy-list->list (foreach->lazy-list for-each '(1 2 3)))))
 
+;;; Examples from the specification
+
+(test #t (continuation-prompt-tag? (default-continuation-prompt-tag)))
+(test #t (eq? (default-continuation-prompt-tag) (default-continuation-prompt-tag)))
+(test #t (continuation-prompt-tag? (make-continuation-prompt-tag)))
+(test #f (equal? (make-continuation-prompt-tag) (default-continuation-prompt-tag)))
+(test #f (equal? (make-continuation-prompt-tag) (make-continuation-prompt-tag)))
+
 ;;; Test End
 
 (test-end)

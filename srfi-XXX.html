@@ -78,6 +78,10 @@
       {
 	  font-size: smaller;
       }
+      pre.example
+      {
+	  margin-left: 1em;
+      }
       </style>
   </head>
   <body>
@@ -510,6 +514,12 @@
 	</p>
       </dd>
     </dl>
+
+    <pre class="example">(continuation-prompt-tag? (default-continuation-prompt-tag))<span class="result">#t</span>
+(eq? (default-continuation-prompt-tag) (default-continuation-prompt-tag))<span class="result">#t</span>
+(continuation-prompt-tag? (make-continuation-prompt-tag))<span class="result">#t</span>
+(equal? (make-continuation-prompt-tag) (default-continuation-prompt-tag))<span class="result">#f</span>
+(equal? (make-continuation-prompt-tag) (make-continuation-prompt-tag))<span class="result">#f</span></pre>
 
     <h3>Continuations</h3>
 
