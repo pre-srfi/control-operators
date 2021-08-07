@@ -636,6 +636,19 @@
 (test #t (continuation? (call/cc values)))
 (test #t (continuation? (call-with-composable-continuation values)))
 
+(test 'exception
+      (guard (c
+	      [(continuation-violation? c) 'exception])
+	((call-with-continuation-barrier
+	  (lambda ()
+	    (call/cc values))))))
+(test 'ok
+      (call/cc
+       (lambda (k)
+	 (call-with-continuation-barrier
+	  (lambda ()
+	    (k 'ok))))))
+
 ;;; Test End
 
 (test-end)

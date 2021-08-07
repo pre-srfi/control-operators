@@ -815,7 +815,7 @@
       in terms of <code>call-in-continuation</code>:</p>
 
     <pre class="example">(let ([<var>tmp</var> <var>obj</var>] &hellip;)
-  (call-in-continuation k (lambda () (values <var>tmp</var> &hellip;))))<span class="result">(k <var>obj</var> &hellip;)</span></pre>
+  (call-in-continuation k (lambda () (values <var>tmp</var> &hellip;))))</pre>
 
     <p>On the other hand, it is not possible to
       define <code>call-in-continuation</code> in terms of invoking a
@@ -847,6 +847,21 @@
 	  be reinstated if and only if the captured continuation
 	  included a continuation barrier.</p>
       </dd>
+
+      <p>A continuation barrier prevents jumps into more deeply nested
+      active procedure calls:</p>
+
+      <pre class="example">((call-with-continuation-barrier
+  (lambda ()
+    (call/cc values))))<span class="result">&amp;continuation-violation <i>exception</i></span></pre>
+
+      <p>On the other hand, escaping jumps are not prohibited:</p>
+
+      <pre class="example">(call/cc
+  (lambda (k)
+    (call-with-continuation-barrier
+      (lambda ()
+        (k 'ok)))))<span class="result">ok</span></pre>
 
       <dt class="procedure"><code>(continuation-prompt-available? <var>prompt-tag</var>)</code></dt>
       <dt class="procedure"><code>(continuation-prompt-available? <var>prompt-tag</var> <var>cont</var>)</code></dt>
