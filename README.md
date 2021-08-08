@@ -1,3 +1,3 @@
 # Control Operators
 
-https://htmlpreview.github.io/?https://github.com/pre-srfi/control-operators/blob/master/srfi-XXX.html
+The development is now happening at: https://github.com/mnieper/srfi-226.
